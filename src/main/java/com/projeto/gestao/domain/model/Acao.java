@@ -1,54 +1,40 @@
 package com.projeto.gestao.domain.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
 @Entity
-@Table(name = "acoes")
+@Table(name = "acoes", uniqueConstraints = @UniqueConstraint(columnNames = "ticker"))
 public class Acao {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false, unique = true)
     private String ticker;
 
     private String nomeEmpresa;
-    
-    private String mercado; // BR, US
-
-    private String moeda; // BRL, USD
-
-    private BigDecimal posicao = BigDecimal.ZERO;
-
-    private BigDecimal quantidadeCompra = BigDecimal.ZERO;
-
-    private BigDecimal quantidadeTotal = BigDecimal.ZERO;
-
+    private String mercado;
+    private String moeda;
     private BigDecimal cotacaoAtual;
-
-    private BigDecimal precoMedio = BigDecimal.ZERO;
-    
     private LocalDateTime dataHoraCotacao;
 
-    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @ManyToOne(optional = false)
     @JoinColumn(name = "corretora_id", nullable = false)
     private Corretora corretoraRelacionada;
-
-    public Acao() {
-    }
-
-    public Acao(BigDecimal quantidadeTotal) {
-        if (quantidadeTotal == null) {
-            this.quantidadeTotal = BigDecimal.ZERO;
-        } else {
-            this.quantidadeTotal = quantidadeTotal;
-        }
-    }
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -65,26 +51,8 @@ public class Acao {
     public String getMoeda() { return moeda; }
     public void setMoeda(String moeda) { this.moeda = moeda; }
 
-    public BigDecimal getPosicao() { return posicao; }
-    public void setPosicao(BigDecimal posicao) { this.posicao = this.quantidadeTotal.multiply(this.cotacaoAtual);}
-
-    public BigDecimal getQuantidadeCompra() { return quantidadeCompra; }
-    public void setQuantidadeCompra(BigDecimal quantidadeCompra) { this.quantidadeCompra = quantidadeCompra; }
-
-    public BigDecimal getQuantidadeTotal() { return quantidadeTotal; }
-    public void setQuantidadeTotal(BigDecimal quantidadeTotal) {
-        if (quantidadeTotal == null) {
-            this.quantidadeTotal = BigDecimal.ZERO;
-        } else {
-            this.quantidadeTotal = quantidadeTotal;
-        }
-    }
-
     public BigDecimal getCotacaoAtual() { return cotacaoAtual; }
     public void setCotacaoAtual(BigDecimal cotacaoAtual) { this.cotacaoAtual = cotacaoAtual; }
-
-    public BigDecimal getPrecoMedio() { return precoMedio; }
-    public void setPrecoMedio(BigDecimal precoMedio) { this.precoMedio = precoMedio; }
 
     public LocalDateTime getDataHoraCotacao() { return dataHoraCotacao; }
     public void setDataHoraCotacao(LocalDateTime dataHoraCotacao) { this.dataHoraCotacao = dataHoraCotacao; }
@@ -92,19 +60,11 @@ public class Acao {
     public Corretora getCorretoraRelacionada() { return corretoraRelacionada; }
     public void setCorretoraRelacionada(Corretora corretoraRelacionada) { this.corretoraRelacionada = corretoraRelacionada; }
 
-    public void calcularPosicaoAtualizada() {
-        if (this.quantidadeTotal != null && this.cotacaoAtual != null) {
-            this.posicao = this.quantidadeTotal.multiply(this.cotacaoAtual);
-        } else {
-            this.posicao = BigDecimal.ZERO;
-        }
-    }
-
     @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Acao acao = (Acao) o;
+    public boolean equals(Object outro) {
+        if (this == outro) return true;
+        if (outro == null || getClass() != outro.getClass()) return false;
+        Acao acao = (Acao) outro;
         return Objects.equals(id, acao.id) && Objects.equals(ticker, acao.ticker);
     }
 

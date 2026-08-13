@@ -4,6 +4,13 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 node_modules/
+src/main/front/dist/
+
+### Variaveis de ambiente locais
+.env
+.env.*
+!.env.example
+
 /src/*.json
 !/src/main/front/*.json
 

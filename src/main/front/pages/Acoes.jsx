@@ -1,364 +1,334 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
+import { apiFetch } from '../services/api';
+import { hasRole } from '../services/auth';
+import { getNomeCorretora } from '../services/corretoras';
+
+const formatCurrency = (value, currency = 'BRL') => Number(value || 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: currency === 'USD' ? 'USD' : 'BRL'
+});
+
+const getErrorMessage = async (response, fallback) => {
+    const data = await response.json().catch(() => ({}));
+    return data.message || fallback;
+};
 
 const Acoes = () => {
-    const [acoes, setAcoes] = useState([]);
-    const [carteiras, setCarteiras] = useState([]);
+    const [catalogo, setCatalogo] = useState([]);
+    const [posicoes, setPosicoes] = useState([]);
     const [corretoras, setCorretoras] = useState([]);
-    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
-    const [modalVendaAberto, setModalVendaAberto] = useState(false);
+    const [cadastro, setCadastro] = useState({ ticker: '', mercado: 'BR', corretoraId: '' });
+    const [compra, setCompra] = useState({ acaoId: '', quantidade: '1' });
+    const [venda, setVenda] = useState({ acaoId: '', quantidade: '' });
+    const [mensagem, setMensagem] = useState({ tipo: '', texto: '' });
+    const [vendaAberta, setVendaAberta] = useState(false);
+    const isAdmin = hasRole('ADMIN');
+    const isInvestor = hasRole('USER');
 
-    // Estados default do formulário de cadastro
-    const [formData, setFormData] = useState({
-        ticker: '',
-        mercado: 'BR',
-        quantidadeCompra: '1',
-        corretoraId: ''
-    });
-    const [vendaData, setVendaData] = useState({
-        acaoIndex: '',
-        quantidade: ''
-    });
-    const [statusMensagem, setStatusMensagem] = useState({ tipo: '', texto: '' });
-    const [vendaMensagem, setVendaMensagem] = useState({ tipo: '', texto: '' });
-
-    // Busca os dados no Back-end
     useEffect(() => {
         carregarDados();
     }, []);
 
-    const carregarDados = () => {
-        // Busca Ações e Carteiras
-        fetch('http://localhost:8080/api/dashboard/acoes')
-            .then(response => {
-                if (!response.ok) throw new Error("Erro ao carregar dados do servidor");
-                return response.json();
-            })
-            .then(data => {
-                setAcoes((data.acoes || []).filter(acao => Number(acao.quantidadeTotal) > 0));
-                setCarteiras(data.carteiras || []);
-            })
-            .catch(error => console.error("Erro na requisição das ações:", error));
+    const carregarDados = async () => {
+        try {
+            const requisicoes = [
+                apiFetch('/acoes'),
+                apiFetch('/corretoras'),
+                isInvestor ? apiFetch('/acoes/minhas') : Promise.resolve(null)
+            ];
+            const [catalogoResponse, corretorasResponse, posicoesResponse] = await Promise.all(requisicoes);
 
-        // Busca Corretoras
-        fetch('http://localhost:8080/corretoras')
-            .then(response => response.json())
-            .then(data => setCorretoras(data))
-            .catch(error => console.error("Erro ao carregar corretoras:", error));
-    };
+            if (!catalogoResponse.ok || !corretorasResponse.ok) {
+                throw new Error('Não foi possível carregar o catálogo de ações.');
+            }
 
-    // Função para lidar com mudanças no formulário
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        setFormData({ ...formData, [name]: value });
-    };
+            setCatalogo(await catalogoResponse.json());
+            setCorretoras((await corretorasResponse.json()).filter((corretora) => corretora.validadaNaCvm === true));
 
-    // Funcoes da minitela de venda no Front
-    const handleVendaInputChange = (e) => {
-        const { name, value } = e.target;
-        setVendaData({ ...vendaData, [name]: value });
-    };
-
-    const abrirModalVenda = () => {
-        setVendaMensagem({ tipo: '', texto: '' });
-        setVendaData({ acaoIndex: '', quantidade: '' });
-        setModalVendaAberto(true);
-    };
-
-    const fecharModalVenda = () => {
-        setModalVendaAberto(false);
-        setVendaData({ acaoIndex: '', quantidade: '' });
-    };
-
-    const handleVendaSubmit = (e) => {
-        e.preventDefault();
-        setVendaMensagem({ tipo: '', texto: '' });
-
-        const acaoSelecionada = acoes[Number(vendaData.acaoIndex)];
-        const quantidadeVendida = Number(vendaData.quantidade);
-        const quantidadeDisponivel = acaoSelecionada ? Number(acaoSelecionada.quantidadeTotal) : 0;
-
-        if (vendaData.acaoIndex === '' || !acaoSelecionada || !quantidadeVendida || quantidadeVendida <= 0) {
-            setVendaMensagem({ tipo: 'error', texto: 'Selecione uma acao e informe uma quantidade valida.' });
-            return;
-        }
-
-        if (quantidadeVendida > quantidadeDisponivel) {
-            setVendaMensagem({ tipo: 'error', texto: `Voce possui apenas ${quantidadeDisponivel} unidade(s) desta acao.` });
-            return;
-        }
-
-        fetch(`http://localhost:8080/acoes/${encodeURIComponent(acaoSelecionada.ticker)}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ quantidadeVenda: vendaData.quantidade }),
-        })
-            .then(async response => {
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || "Erro ao vender a acao");
+            if (posicoesResponse) {
+                if (!posicoesResponse.ok) {
+                    throw new Error(await getErrorMessage(posicoesResponse, 'Não foi possível carregar sua carteira.'));
                 }
-                return response.json();
-            })
-            .then(() => {
-                setVendaMensagem({
-                    tipo: 'success',
-                    texto: `Venda de ${quantidadeVendida} unidade(s) de ${acaoSelecionada.ticker} registrada com sucesso!`
-                });
-                setVendaData({ acaoIndex: '', quantidade: '' });
-                carregarDados();
-            })
-            .catch(error => {
-                console.error("Erro na venda:", error);
-                setVendaMensagem({ tipo: 'error', texto: error.message || 'Erro ao vender acao. Verifique os dados.' });
-            });
+                setPosicoes(await posicoesResponse.json());
+            } else {
+                setPosicoes([]);
+            }
+        } catch (error) {
+            setMensagem({ tipo: 'error', texto: error.message });
+        }
     };
 
-    // Função para enviar o cadastro ao Back-end
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        setStatusMensagem({ tipo: '', texto: '' });
+    const cadastrarAcao = async (event) => {
+        event.preventDefault();
+        setMensagem({ tipo: '', texto: '' });
 
-        // Validação básica no Front
-        if (!formData.ticker || !formData.mercado || !formData.quantidadeCompra || !formData.corretoraId) {
-            setStatusMensagem({ tipo: 'error', texto: 'Preencha todos os campos obrigatórios.' });
-            return;
-        }
-
-        const quantidadeCompra = Number(formData.quantidadeCompra);
-        if (!quantidadeCompra || quantidadeCompra <= 0) {
-            setStatusMensagem({ tipo: 'error', texto: 'Quantidade de compra deve ser maior que zero.' });
-            return;
-        }
-
-        fetch('http://localhost:8080/acoes', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(formData),
-        })
-            .then(response => {
-                if (!response.ok) throw new Error("Erro ao cadastrar a ação");
-                return response.json();
-            })
-            .then(() => {
-                setStatusMensagem({ tipo: 'success', texto: 'Ação cadastrada com sucesso!' });
-                setFormData({ ticker: '', mercado: 'B3', quantidadeCompra: '', corretoraId: '' });
-                carregarDados(); // Recarrega a tabela após cadastrar
-            })
-            .catch(error => {
-                console.error("Erro no cadastro:", error);
-                setStatusMensagem({ tipo: 'error', texto: 'Erro ao cadastrar ação. Verifique os dados.' });
+        try {
+            const response = await apiFetch('/acoes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(cadastro)
             });
+            if (!response.ok) {
+                throw new Error(await getErrorMessage(response, 'Não foi possível cadastrar a ação.'));
+            }
+
+            setCadastro({ ticker: '', mercado: 'BR', corretoraId: '' });
+            setMensagem({ tipo: 'success', texto: 'Ativo cadastrado no catálogo com sucesso.' });
+            carregarDados();
+        } catch (error) {
+            setMensagem({ tipo: 'error', texto: error.message });
+        }
     };
 
-    const ordenar = (coluna) => {
-        let direcao = 'asc';
-        if (sortConfig.key === coluna && sortConfig.direction === 'asc') {
-            direcao = 'desc';
+    const comprarAcao = async (event) => {
+        event.preventDefault();
+        setMensagem({ tipo: '', texto: '' });
+
+        try {
+            if (!compra.acaoId || Number(compra.quantidade) <= 0) {
+                throw new Error('Selecione uma ação e informe uma quantidade válida.');
+            }
+            const response = await apiFetch(`/acoes/${compra.acaoId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quantidade: compra.quantidade })
+            });
+            if (!response.ok) {
+                throw new Error(await getErrorMessage(response, 'Não foi possível concluir a compra.'));
+            }
+
+            setCompra({ acaoId: '', quantidade: '1' });
+            setMensagem({ tipo: 'success', texto: 'Compra registrada na sua carteira.' });
+            carregarDados();
+        } catch (error) {
+            setMensagem({ tipo: 'error', texto: error.message });
         }
+    };
 
-        const acoesOrdenadas = [...acoes].sort((a, b) => {
-            if (a[coluna] < b[coluna]) return direcao === 'asc' ? -1 : 1;
-            if (a[coluna] > b[coluna]) return direcao === 'asc' ? 1 : -1;
-            return 0;
-        });
+    const venderAcao = async (event) => {
+        event.preventDefault();
+        const posicao = posicoes.find((item) => item.id === venda.acaoId);
 
-        setAcoes(acoesOrdenadas);
-        setSortConfig({ key: coluna, direction: direcao });
+        try {
+            if (!posicao || Number(venda.quantidade) <= 0) {
+                throw new Error('Selecione uma posição e informe uma quantidade válida.');
+            }
+            if (Number(venda.quantidade) > Number(posicao.quantidadeTotal)) {
+                throw new Error('A quantidade informada é maior que a disponível na sua carteira.');
+            }
+
+            const response = await apiFetch(`/acoes/${encodeURIComponent(posicao.ticker)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quantidade: venda.quantidade })
+            });
+            if (!response.ok) {
+                throw new Error(await getErrorMessage(response, 'Não foi possível concluir a venda.'));
+            }
+
+            setVenda({ acaoId: '', quantidade: '' });
+            setVendaAberta(false);
+            setMensagem({ tipo: 'success', texto: 'Venda registrada e saldo atualizado.' });
+            carregarDados();
+        } catch (error) {
+            setMensagem({ tipo: 'error', texto: error.message });
+        }
     };
 
     return (
         <div className="container">
-            <Navbar title="Ações Monitoradas" />
+            <Navbar title={isAdmin ? 'Catálogo de Ações' : 'Negociação de Ações'} />
 
-            {/* Minitela de Cadastro */}
-            <section className="form-panel">
-                <h3>Cadastrar Nova Ação</h3>
-                <form onSubmit={handleSubmit} className="app-form">
-                    <div className="field-group">
-                        <label>Ticker:</label>
-                        <input
-                            type="text"
-                            name="ticker"
-                            value={formData.ticker}
-                            onChange={handleInputChange}
-                            placeholder="Ex: PETR4"
-                            className="form-input"
-                        />
-                    </div>
-                    <div className="field-group">
-                        <label>Mercado:</label>
-                        <select name="mercado" value={formData.mercado} onChange={handleInputChange} className="form-input">
-                            <option value="BR">Brasil</option>
-                            <option value="US">EUA</option>
-                        </select>
-                    </div>
-                    <div className="field-group">
-                        <label>Quantidade:</label>
-                        <input
-                            type="number"
-                            name="quantidadeCompra"
-                            value={formData.quantidadeCompra}
-                            onChange={handleInputChange}
-                            placeholder="Ex: 100"
-                            min="0.01"
-                            step="0.01"
-                            className="form-input"
-                        />
-                    </div>
-                    <div className="field-group">
-                        <label>Corretora:</label>
-                        <select name="corretoraId" value={formData.corretoraId} onChange={handleInputChange} className="form-input">
-                            <option value="">Selecione a corretora...</option>
-                            {corretoras.map(corretora => (
-                                <option key={corretora.id} value={corretora.id}>
-                                    {corretora.nomeFantasia || corretora.razaoSocial}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="form-actions">
-                        <button type="submit" className="btn btn-primary">Adicionar</button>
-                        <button
-                            type="button"
-                            onClick={abrirModalVenda}
-                            className="btn btn-danger"
-                        >
-                            Vender
-                        </button>
-                    </div>
-                </form>
-                {statusMensagem.texto && (
-                    <p className={`alert ${statusMensagem.tipo === 'error' ? 'alert-error' : 'alert-success'}`}>
-                        {statusMensagem.texto}
-                    </p>
-                )}
-            </section>
-
-            {modalVendaAberto && (
-                <div className="modal-overlay">
-                    <div className="modal-panel">
-                        <div className="modal-header">
-                            <h3>Vender Acao</h3>
-                            <button
-                                type="button"
-                                onClick={fecharModalVenda}
-                                className="modal-close"
-                                aria-label="Fechar venda"
-                            >
-                                x
-                            </button>
+            {isAdmin && (
+                <section className="form-panel">
+                    <h3>Cadastrar Ativo no Catálogo</h3>
+                    <form onSubmit={cadastrarAcao} className="app-form">
+                        <div className="field-group">
+                            <label>Ticker</label>
+                            <input
+                                type="text"
+                                name="ticker"
+                                value={cadastro.ticker}
+                                onChange={(event) => setCadastro({ ...cadastro, ticker: event.target.value })}
+                                placeholder="Ex: PETR4"
+                                className="form-input"
+                            />
                         </div>
-                        <form onSubmit={handleVendaSubmit} className="modal-form">
-                            <div className="field-group">
-                                <label>Acao:</label>
-                                <select
-                                    name="acaoIndex"
-                                    value={vendaData.acaoIndex}
-                                    onChange={handleVendaInputChange}
-                                    className="form-input"
-                                >
-                                    <option value="">Selecione a acao...</option>
-                                    {acoes.map((acao, index) => (
-                                        <option key={`${acao.ticker}-${index}`} value={index}>
-                                            {acao.ticker} - {acao.nomeEmpresa || 'Empresa nao informada'} ({acao.quantidadeTotal} disponivel)
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="field-group">
-                                <label>Quantidade:</label>
-                                <input
-                                    type="number"
-                                    name="quantidade"
-                                    value={vendaData.quantidade}
-                                    onChange={handleVendaInputChange}
-                                    min="0.01"
-                                    max={vendaData.acaoIndex !== '' ? acoes[Number(vendaData.acaoIndex)]?.quantidadeTotal : undefined}
-                                    step="0.01"
-                                    placeholder="Ex: 10"
-                                    className="form-input"
-                                />
-                            </div>
-                            <div className="modal-actions">
-                                <button type="button" onClick={fecharModalVenda} className="btn btn-secondary">
-                                    Cancelar
-                                </button>
-                                <button type="submit" className="btn btn-danger">
-                                    Confirmar venda
-                                </button>
-                            </div>
-                        </form>
-                        {vendaMensagem.texto && (
-                            <p className={`alert ${vendaMensagem.tipo === 'error' ? 'alert-error' : 'alert-success'}`}>
-                                {vendaMensagem.texto}
-                            </p>
-                        )}
-                    </div>
-                </div>
+                        <div className="field-group">
+                            <label>Mercado</label>
+                            <select
+                                value={cadastro.mercado}
+                                onChange={(event) => setCadastro({ ...cadastro, mercado: event.target.value })}
+                                className="form-input"
+                            >
+                                <option value="BR">Brasil</option>
+                                <option value="US">EUA</option>
+                            </select>
+                        </div>
+                        <div className="field-group">
+                            <label>Corretora validada</label>
+                            <select
+                                value={cadastro.corretoraId}
+                                onChange={(event) => setCadastro({ ...cadastro, corretoraId: event.target.value })}
+                                className="form-input"
+                            >
+                                <option value="">Selecione a corretora...</option>
+                                {corretoras.map((corretora) => (
+                                    <option key={corretora.id} value={corretora.id}>{getNomeCorretora(corretora)}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="form-actions">
+                            <button type="submit" className="btn btn-primary">Cadastrar ativo</button>
+                        </div>
+                    </form>
+                    {corretoras.length === 0 && <p className="alert alert-warning">Cadastre uma corretora validada antes de incluir ações.</p>}
+                </section>
             )}
 
-            <div className="table-container">
-                {acoes.length > 0 ? (
-                    <table id="minhaTabela">
+            {isInvestor && (
+                <section className="form-panel">
+                    <h3>Comprar Ação</h3>
+                    <form onSubmit={comprarAcao} className="app-form">
+                        <div className="field-group">
+                            <label>Ativo</label>
+                            <select
+                                value={compra.acaoId}
+                                onChange={(event) => setCompra({ ...compra, acaoId: event.target.value })}
+                                className="form-input"
+                            >
+                                <option value="">Selecione uma ação...</option>
+                                {catalogo.map((acao) => (
+                                    <option key={acao.id} value={acao.id}>
+                                        {acao.ticker} - {acao.nomeEmpresa || 'Empresa não informada'} ({formatCurrency(acao.cotacaoAtual, acao.moeda)})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="field-group">
+                            <label>Quantidade</label>
+                            <input
+                                type="number"
+                                value={compra.quantidade}
+                                onChange={(event) => setCompra({ ...compra, quantidade: event.target.value })}
+                                min="0.01"
+                                step="0.01"
+                                className="form-input"
+                            />
+                        </div>
+                        <div className="form-actions">
+                            <button type="submit" className="btn btn-primary">Comprar</button>
+                            <button type="button" className="btn btn-danger" onClick={() => setVendaAberta(true)} disabled={posicoes.length === 0}>Vender</button>
+                        </div>
+                    </form>
+                </section>
+            )}
+
+            {mensagem.texto && <p className={`alert ${mensagem.tipo === 'error' ? 'alert-error' : 'alert-success'}`}>{mensagem.texto}</p>}
+
+            <section className="table-container">
+                <h3>Ativos Disponíveis</h3>
+                {catalogo.length > 0 ? (
+                    <table id="catalogoAcoes">
                         <thead>
                         <tr>
-                            <th onClick={() => ordenar('ticker')} className="topCollumn">Ticker</th>
-                            <th onClick={() => ordenar('corretora')} className="topCollumn">Corretora</th>
-                            <th onClick={() => ordenar('posicao')} className="topCollumn">Posição</th>
-                            <th onClick={() => ordenar('nomeEmpresa')} className="topCollumn">Empresa</th>
-                            <th onClick={() => ordenar('mercado')} className="topCollumn">Mercado</th>
-                            <th onClick={() => ordenar('quantidadeTotal')} className="topCollumn">Quantidade</th>
-                            <th onClick={() => ordenar('cotacaoAtual')} className="topCollumn">Cotação</th>
-                            <th onClick={() => ordenar('precoMedio')} className="topCollumn">Preço Médio</th>
-                            <th onClick={() => ordenar('dataHoraCotacao')} className="topCollumn">Data Atualização</th>
+                            <th>Ticker</th>
+                            <th>Empresa</th>
+                            <th>Corretora</th>
+                            <th>Mercado</th>
+                            <th>Cotação</th>
+                            <th>Atualizacao</th>
                         </tr>
                         </thead>
                         <tbody>
-                        {acoes.map((acao, index) => (
-                            <tr key={index}>
+                        {catalogo.map((acao) => (
+                            <tr key={acao.id}>
                                 <td><span className="ticker-badge">{acao.ticker}</span></td>
-                                <td>{acao.corretoraRelacionada.nomeFantasia}</td>
-                                {/* Formatamos para garantir que exiba BRL ou a moeda vinda do banco */}
-                                <td className="price">{`${acao.moeda || 'R$'} ${acao.posicao}`}</td>
-                                <td>{acao.nomeEmpresa}</td>
+                                <td>{acao.nomeEmpresa || '---'}</td>
+                                <td>{getNomeCorretora(acao.corretoraRelacionada)}</td>
                                 <td>{acao.mercado}</td>
-                                <td>{acao.quantidadeTotal}</td>
-                                <td className="price">{`${acao.moeda || 'R$'} ${acao.cotacaoAtual}`}</td>
-                                <td className="price">{`${acao.moeda || 'R$'} ${acao.precoMedio}`}</td>
+                                <td className="price">{formatCurrency(acao.cotacaoAtual, acao.moeda)}</td>
                                 <td>{acao.dataHoraCotacao ? new Date(acao.dataHoraCotacao).toLocaleString('pt-BR') : '---'}</td>
                             </tr>
                         ))}
                         </tbody>
-                        {carteiras.length > 0 && (
-                            <tfoot>
-                            {carteiras.map((carteira, index) => (
-                                <tr key={index}>
-                                    <td colSpan="7" className="table-total-label">
-                                        Saldo Total da Carteira:
-                                    </td>
-                                    <td className="price table-total-value">
-                                        {`R$ ${carteira.saldoAcao}`}
-                                    </td>
+                    </table>
+                ) : <div className="empty-state"><p>Nenhum ativo cadastrado no catálogo.</p></div>}
+            </section>
+
+            {isInvestor && (
+                <section className="table-container">
+                    <h3>Minhas Posições</h3>
+                    {posicoes.length > 0 ? (
+                        <table id="minhasPosicoes">
+                            <thead>
+                            <tr>
+                                <th>Ticker</th>
+                                <th>Quantidade</th>
+                                <th>Preço médio</th>
+                                <th>Cotação</th>
+                                <th>Posição atual</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {posicoes.map((acao) => (
+                                <tr key={acao.posicaoId}>
+                                    <td><span className="ticker-badge">{acao.ticker}</span></td>
+                                    <td>{acao.quantidadeTotal}</td>
+                                    <td className="price">{formatCurrency(acao.precoMedio, acao.moeda)}</td>
+                                    <td className="price">{formatCurrency(acao.cotacaoAtual, acao.moeda)}</td>
+                                    <td className="price">{formatCurrency(acao.posicao, acao.moeda)}</td>
                                 </tr>
                             ))}
-                            </tfoot>
-                        )}
-                    </table>
-                ) : (
-                    <div className="empty-state">
-                        <p>Nenhuma ação monitorada no momento.</p>
-                        <p>Certifique-se de que o Back-end está rodando e a API retornou dados.</p>
+                            </tbody>
+                        </table>
+                    ) : <div className="empty-state"><p>Você ainda não possui ações na carteira.</p></div>}
+                </section>
+            )}
+
+            {vendaAberta && (
+                <div className="modal-overlay">
+                    <div className="modal-panel">
+                        <div className="modal-header">
+                            <h3>Vender Ação</h3>
+                            <button type="button" onClick={() => setVendaAberta(false)} className="modal-close" aria-label="Fechar venda">x</button>
+                        </div>
+                        <form onSubmit={venderAcao} className="modal-form">
+                            <div className="field-group">
+                                <label>Posição</label>
+                                <select
+                                    value={venda.acaoId}
+                                    onChange={(event) => setVenda({ ...venda, acaoId: event.target.value })}
+                                    className="form-input"
+                                >
+                                    <option value="">Selecione a ação...</option>
+                                    {posicoes.map((acao) => (
+                                        <option key={acao.posicaoId} value={acao.id}>{acao.ticker} ({acao.quantidadeTotal} disponível)</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="field-group">
+                                <label>Quantidade</label>
+                                <input
+                                    type="number"
+                                    value={venda.quantidade}
+                                    onChange={(event) => setVenda({ ...venda, quantidade: event.target.value })}
+                                    min="0.01"
+                                    step="0.01"
+                                    className="form-input"
+                                />
+                            </div>
+                            <div className="modal-actions">
+                                <button type="button" onClick={() => setVendaAberta(false)} className="btn btn-secondary">Cancelar</button>
+                                <button type="submit" className="btn btn-danger">Confirmar venda</button>
+                            </div>
+                        </form>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 };
-
 
 export default Acoes;

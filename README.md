@@ -1,42 +1,157 @@
-# 📌 API de Gestão de Ações e Corretoras
+# API de Gestao de Acoes e Corretoras
 
-Este projeto consiste em uma **API RESTful** desenvolvida para gerenciar corretoras de valores e ativos financeiros (ações). A API integra-se com diversas fontes externas para obter dados financeiros e validar informações de mercado, enriquecendo os cadastros locais e garantindo a integridade das informações financeiras.
+API REST em Java 17 e Spring Boot para cadastro de corretoras e acoes, com consulta de dados reais em fontes publicas.
 
-## 🎯 Objetivo
-Integrar as **APIs externas** essenciais para o sistema de gestão de ações e corretoras, garantindo que as informações de mercado sejam precisas e validadas.
+## Requisitos atendidos
 
----
+- Cadastro de corretora a partir de CNPJ, com validacao de formato e digitos verificadores.
+- Consulta de dados empresariais na Brasil API e validacao de CEP no ViaCEP antes da persistencia.
+- Identificacao de instituicao do mercado financeiro por situacao cadastral, CNAE e denominacao empresarial, registrada no campo `validadaNaCvm`.
+- Cotacao de acoes brasileiras pela brapi e americanas pela Alpha Vantage.
+- Ticker e CNPJ unicos no banco de dados.
+- Endpoints REST, DTOs, tratamento centralizado de erros e cache para CNPJ/CEP.
+- Login com perfis `ADMIN` e `USER`; o administrador cuida do catalogo e o usuario investe na propria carteira.
+- Carteira criada zerada para toda nova conta. O cadastro nao autentica automaticamente o usuario.
 
-## ✅ APIs Utilizadas
+## Arquitetura
 
-### 1. **[brapi.dev](https://brapi.dev)** - Ações Brasileiras
-- **Descrição**: Fornece informações sobre ações da bolsa brasileira, incluindo cotações atualizadas.
-- **Uso no Sistema**: Consultada para obter a cotação das ações brasileiras, com mercado "BR", garantindo dados atualizados e precisos sobre os ativos da bolsa de valores brasileira.
+`Controller -> Service -> Repository -> Entity`, com DTOs de entrada e saida na API. As integracoes externas sao isoladas por portas no dominio e adapters na infraestrutura.
 
-### 2. **[alphavantage.co](https://www.alphavantage.co)** - Ações Bolsa Americana
-- **Descrição**: Oferece dados sobre as cotações de ações da bolsa dos Estados Unidos, com informações detalhadas sobre diversos ativos.
-- **Uso no Sistema**: Utilizada para consultar cotações de ações nos mercados dos EUA, permitindo acesso a dados financeiros internacionais.
+```text
+api/controller       Endpoints HTTP e autenticacao
+service              Regras de negocio
+repository           Persistencia JPA
+domain/model         Entidades
+domain/dto           Contratos HTTP
+domain/port          Contratos de integracao
+infra/adapter        Implementacoes das integracoes
+infra/client         Clientes OpenFeign
+```
 
-### 3. **[Brasil API](https://brasilapi.com.br)** - Diversas APIs para Dados Brasileiros
-- **Descrição**: API que oferece acesso a vários dados sobre o Brasil, como CNPJ, dados de empresas e endereços de locais.
-- **Uso no Sistema**: Consultada para obter informações detalhadas sobre o CNPJ das corretoras, validando as instituições financeiras registradas no Brasil.
+## Fontes externas
 
-### 4. **[ViaCEP](https://viacep.com.br)** - CEP das Cidades Brasileiras
-- **Descrição**: API que consulta o CEP de cidades brasileiras, fornecendo informações de localização.
-- **Uso no Sistema**: Utilizada para buscar e validar os endereços das corretoras, garantindo a precisão das informações de localização (como logradouro, número, bairro, cidade e estado).
+| Uso | Servico | Endpoint principal |
+|---|---|---|
+| Dados empresariais | Brasil API | `/api/cnpj/v1/{cnpj}` |
+| Endereco | ViaCEP | `/ws/{cep}/json/` |
+| Cotacao BR | brapi | `/api/quote/{ticker}` |
+| Cotacao US | Alpha Vantage | `GLOBAL_QUOTE` |
 
----
+As cotacoes dependem de rede e dos limites dos provedores. A Alpha Vantage exige uma chave propria. Erros de indisponibilidade, limite, credencial e recurso inexistente retornam JSON com `timestamp`, `status`, `error` e `message`.
 
-## 🎯 Como Funciona
-- **CNPJ e Instituições**: Utiliza a **Brasil API** para obter e validar dados relacionados ao CNPJ das corretoras.
-- **Endereço (CEP)**: A consulta ao CEP das corretoras é feita via **ViaCEP** para garantir que as informações de endereço estejam corretas.
-- **Cotação de Ações**: 
-  - **Ações Brasileiras**: Consultada via **brapi.dev** para obter cotações de ações da bolsa brasileira.
-  - **Ações Americanas**: Consultadas via **Alpha Vantage** para obter cotações de ações da bolsa americana.
+## Configuracao
 
----
+Use `.env.example` como referencia e configure as variaveis no terminal ou na configuracao de execucao da IDE. O Spring Boot nao carrega um arquivo `.env` automaticamente. Nao versione chaves reais.
 
-## ✅ Tecnologias e Ferramentas
-- **Linguagem/Framework**: Java com Spring Boot.
-- **Banco de Dados**: H2 (para testes) e PostgreSQL (para produção).
-- **Comunicação Externa**: Usamos Spring Cloud OpenFeign ou WebClient para consumo das APIs externas.
+| Perfil | Banco | Como ativar |
+|---|---|---|
+| `test` (padrao) | H2 em memoria | sem variavel adicional |
+| `dev` | PostgreSQL | `SPRING_PROFILES_ACTIVE=dev` |
+| `mysql` | MySQL | `SPRING_PROFILES_ACTIVE=mysql` |
+
+Variaveis de cotacao:
+
+```properties
+BRAPI_TOKEN=
+ALPHAVANTAGE_API_KEY=sua_chave
+```
+
+No PowerShell, por exemplo:
+
+```powershell
+$env:ALPHAVANTAGE_API_KEY = "sua_chave"
+$env:SPRING_PROFILES_ACTIVE = "dev"
+.\mvnw.cmd spring-boot:run
+```
+
+## Execucao
+
+Backend:
+
+```powershell
+.\mvnw.cmd test
+.\mvnw.cmd spring-boot:run
+```
+
+Frontend:
+
+```powershell
+Set-Location src\main\front
+npm.cmd install
+npm.cmd run dev
+```
+
+Abra `http://127.0.0.1:5173`. A API fica em `http://localhost:8080` e o H2 esta disponivel em `http://localhost:8080/h2-console` no perfil `test`.
+
+Perfis locais iniciais: `admin@corretora.local` / `admin123` e `usuario@corretora.local` / `user123`. Altere essas credenciais em qualquer ambiente compartilhado.
+
+## Autenticacao e permissoes
+
+1. `POST /auth/login` retorna um token de sessao.
+2. Envie `Authorization: Bearer <token>` nas rotas protegidas.
+3. `ADMIN` cadastra corretoras e ativos, atualiza cotacoes e consulta os dados gerais da plataforma.
+4. `USER` realiza aporte, compra e vende ativos somente na propria carteira.
+
+`POST /auth/register` cria uma conta `USER`, uma carteira com saldos `0` e retorna o usuario sem token. O login e uma etapa separada.
+
+## Endpoints obrigatorios
+
+| Metodo | Rota | Regra |
+|---|---|---|
+| POST | `/corretoras` | ADMIN; recebe somente `cnpj` |
+| GET | `/corretoras` | lista corretoras |
+| GET | `/corretoras/{id}` | busca por ID |
+| GET | `/corretoras/cnpj/{cnpj}` | busca por CNPJ |
+| POST | `/acoes` | ADMIN; consulta cotacao e cria ticker unico no catalogo |
+| GET | `/acoes` | lista acoes cadastradas |
+| GET | `/acoes/{id}` | busca por ID |
+| GET | `/acoes/ticker/{ticker}` | busca por ticker |
+| PUT | `/acoes/{id}/atualizar-cotacao` | ADMIN; atualiza pela API adequada |
+
+Rotas adicionais: `GET /acoes/minhas` lista as posicoes do investidor, `PUT /acoes/{id}` compra uma quantidade para a propria carteira, `POST /acoes/{ticker}` vende uma quantidade da propria carteira e `POST /carteiras/principal/aportes` adiciona saldo para investir.
+
+## Diagrama ER
+
+```mermaid
+erDiagram
+    USUARIO ||--o{ CARTEIRA : possui
+    CARTEIRA ||--o{ POSICAO_CARTEIRA : contem
+    ACAO ||--o{ POSICAO_CARTEIRA : compoe
+    CORRETORA ||--o{ ACAO : intermedia
+
+    USUARIO {
+        UUID id PK
+        string nome
+        string email UK
+        string papel
+    }
+    CARTEIRA {
+        long id PK
+        decimal saldo_acao
+        decimal saldo_em_conta
+        UUID usuario_id FK
+    }
+    CORRETORA {
+        UUID id PK
+        string cnpj UK
+        boolean validada_na_cvm
+    }
+    ACAO {
+        UUID id PK
+        string ticker UK
+        string mercado
+        decimal cotacao_atual
+        UUID corretora_id FK
+    }
+    POSICAO_CARTEIRA {
+        UUID id PK
+        long carteira_id FK
+        UUID acao_id FK
+        decimal quantidade_total
+        decimal preco_medio
+    }
+```
+
+## Testes e collection
+
+Execute `./mvnw.cmd test` para os testes unitarios e de contexto. A collection atualizada esta em [docs/postman_collection.json](docs/postman_collection.json); ela mantem tokens separados para administrador e investidor. Primeiro crie a corretora e o ativo como administrador; depois execute o login do investidor, o aporte e as operacoes de compra/venda.

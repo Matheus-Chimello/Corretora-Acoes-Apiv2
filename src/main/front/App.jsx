@@ -1,29 +1,82 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 
-// Importamos as páginas que criamos anteriormente
 import Dashboard from './pages/Dashboard';
 import Corretoras from './pages/Corretoras';
 import Acoes from './pages/Acoes';
+import Carteiras from './pages/Carteiras';
+import Login from './pages/Login';
+import { isAuthenticated } from './services/auth';
 
-// Importamos o CSS global
 import './styles/index.css';
+
+const ProtectedRoute = ({ children }) => {
+    if (!isAuthenticated()) {
+        return <Navigate to="/login" replace />;
+    }
+
+    return children;
+};
+
+const PublicRoute = ({ children }) => {
+    if (isAuthenticated()) {
+        return <Navigate to="/" replace />;
+    }
+
+    return children;
+};
 
 function App() {
     return (
         <Router>
             <Routes>
-                {/* Rota Principal: Dashboard */}
-                <Route path="/" element={<Dashboard />} />
+                <Route
+                    path="/login"
+                    element={(
+                        <PublicRoute>
+                            <Login />
+                        </PublicRoute>
+                    )}
+                />
 
-                {/* Rota para a lista de Corretoras */}
-                <Route path="/corretoras" element={<Corretoras />} />
+                <Route
+                    path="/"
+                    element={(
+                        <ProtectedRoute>
+                            <Dashboard />
+                        </ProtectedRoute>
+                    )}
+                />
 
-                {/* Rota para a lista de Ações */}
-                <Route path="/acoes" element={<Acoes />} />
+                <Route
+                    path="/corretoras"
+                    element={(
+                        <ProtectedRoute>
+                            <Corretoras />
+                        </ProtectedRoute>
+                    )}
+                />
 
-                {/* Caso o utilizador tente aceder ao antigo /dashboard, redirecionamos para / */}
+                <Route
+                    path="/acoes"
+                    element={(
+                        <ProtectedRoute>
+                            <Acoes />
+                        </ProtectedRoute>
+                    )}
+                />
+
+                <Route
+                    path="/carteiras"
+                    element={(
+                        <ProtectedRoute>
+                            <Carteiras />
+                        </ProtectedRoute>
+                    )}
+                />
+
                 <Route path="/dashboard" element={<Navigate to="/" replace />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
         </Router>
     );

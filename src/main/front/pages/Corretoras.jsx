@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
+import { apiFetch } from '../services/api';
+import { hasRole } from '../services/auth';
 
 const Corretoras = () => {
     // Estados para a tabela de corretoras
@@ -10,10 +12,11 @@ const Corretoras = () => {
     const [cnpjInput, setCnpjInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [mensagem, setMensagem] = useState({ texto: '', tipo: '' }); // tipo: 'success' ou 'error'
+    const canWrite = hasRole('ADMIN');
 
     // Função de carregamento inicial
     useEffect(() => {
-        fetch('http://localhost:8080/api/dashboard/corretoras')
+        apiFetch('/api/dashboard/corretoras')
             .then(response => {
                 if (!response.ok) throw new Error("Erro ao carregar dados do servidor");
                 return response.json();
@@ -37,7 +40,7 @@ const Corretoras = () => {
         setMensagem({ texto: '', tipo: '' }); // Reseta a mensagem
 
         // O seu controller Spring mapeia o POST para /corretoras
-        fetch('http://localhost:8080/corretoras', {
+        apiFetch('/corretoras', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -56,7 +59,12 @@ const Corretoras = () => {
                 // Adiciona a nova corretora à lista existente sem precisar recarregar a página
                 setCorretoras(prev => [...prev, novaCorretora]);
                 setCnpjInput(''); // Limpa o campo
-                setMensagem({ texto: 'Corretora adicionada com sucesso!', tipo: 'success' });
+                setMensagem({
+                    texto: novaCorretora.validadaNaCvm
+                        ? 'Corretora adicionada com sucesso. CVM validada.'
+                        : 'CNPJ cadastrado, mas não é uma corretora de valores validada na CVM.',
+                    tipo: novaCorretora.validadaNaCvm ? 'success' : 'warning'
+                });
             })
             .catch(error => {
                 console.error("Erro no POST:", error);
@@ -101,21 +109,25 @@ const Corretoras = () => {
                             placeholder="Apenas números ou formatado..."
                             value={cnpjInput}
                             onChange={(e) => setCnpjInput(e.target.value)}
-                            disabled={isLoading}
+                            disabled={isLoading || !canWrite}
                             className="form-input"
                         />
                     </div>
                     <button
                         type="submit"
-                        disabled={isLoading || !cnpjInput}
+                        disabled={isLoading || !cnpjInput || !canWrite}
                         className="btn btn-primary"
                     >
                         {isLoading ? 'Buscando...' : 'Adicionar'}
                     </button>
                 </form>
 
+                {!canWrite && (
+                    <div className="alert alert-warning">Usuário com permissão somente leitura.</div>
+                )}
+
                 {mensagem.texto && (
-                    <div className={`alert ${mensagem.tipo === 'error' ? 'alert-error' : 'alert-success'}`}>
+                    <div className={`alert ${getAlertClass(mensagem.tipo)}`}>
                         {mensagem.texto}
                     </div>
                 )}
@@ -144,7 +156,7 @@ const Corretoras = () => {
                                     {corretora.validadaNaCvm ? (
                                         <span className="badge success">Validada</span>
                                     ) : (
-                                        <span className="badge warning">Pendente</span>
+                                        <span className="badge danger">Não CVM</span>
                                     )}
                                 </td>
                             </tr>
@@ -160,6 +172,18 @@ const Corretoras = () => {
             </div>
         </div>
     );
+};
+
+const getAlertClass = (tipo) => {
+    if (tipo === 'error') {
+        return 'alert-error';
+    }
+
+    if (tipo === 'warning') {
+        return 'alert-warning';
+    }
+
+    return 'alert-success';
 };
 
 export default Corretoras;

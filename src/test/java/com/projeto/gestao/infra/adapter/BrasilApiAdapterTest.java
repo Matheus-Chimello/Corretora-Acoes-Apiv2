@@ -11,7 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class BrasilApiAdapterTest {
@@ -35,7 +35,7 @@ class BrasilApiAdapterTest {
         dto.setNumero("201");
         dto.setComplemento("6o andar");
         dto.setBairro("Itaim Bibi");
-        dto.setMunicipio("São Paulo");
+        dto.setMunicipio("Sao Paulo");
         dto.setUf("SP");
         if (cnaeCodigo != null) {
             BrasilApiCnpjDto.CnaePrincipal cnae = new BrasilApiCnpjDto.CnaePrincipal();
@@ -47,34 +47,47 @@ class BrasilApiAdapterTest {
     }
 
     @Test
-    @DisplayName("isValidAndMarketParticipant deve retornar true para CNAE 6612-6 (corretora)")
+    @DisplayName("isValidAndMarketParticipant deve retornar true para CNAE 6612-6")
     void deveRetornarTrueParaCnaeFinanceiro() {
-        BrasilApiCnpjDto dto = buildDto(2, 66126, "Corretoras de Títulos");
+        BrasilApiCnpjDto dto = buildDto(2, 66126, "Corretoras de Titulos");
         when(brasilApiClient.consultarCnpj("02332886000104")).thenReturn(dto);
 
         assertTrue(brasilApiAdapter.isValidAndMarketParticipant("02332886000104"));
     }
 
     @Test
-    @DisplayName("isValidAndMarketParticipant deve retornar false para CNAE não financeiro")
+    @DisplayName("isValidAndMarketParticipant deve retornar true quando CNAE vem nulo mas razao social indica corretora")
+    void deveRetornarTrueQuandoCnaeNuloMasRazaoSocialIndicaCorretora() {
+        BrasilApiCnpjDto dto = buildDto(2, null, null);
+        dto.setRazaoSocial("XP INVESTIMENTOS CORRETORA DE CAMBIO, TITULOS E VALORES MOBILIARIOS S/A");
+        dto.setNomeFantasia("XP INVESTIMENTOS CCTVM S/A");
+        when(brasilApiClient.consultarCnpj("02332886000104")).thenReturn(dto);
+
+        assertTrue(brasilApiAdapter.isValidAndMarketParticipant("02332886000104"));
+    }
+
+    @Test
+    @DisplayName("isValidAndMarketParticipant deve retornar false para CNAE nao financeiro")
     void deveRetornarFalseParaCnaeNaoFinanceiro() {
-        BrasilApiCnpjDto dto = buildDto(2, 47211, "Comércio varejista");
+        BrasilApiCnpjDto dto = buildDto(2, 47211, "Comercio varejista");
+        dto.setRazaoSocial("MERCADO EXEMPLO LTDA");
+        dto.setNomeFantasia("Mercado Exemplo");
         when(brasilApiClient.consultarCnpj("12345678000195")).thenReturn(dto);
 
         assertFalse(brasilApiAdapter.isValidAndMarketParticipant("12345678000195"));
     }
 
     @Test
-    @DisplayName("isValidAndMarketParticipant deve retornar false quando situacao não é ATIVA")
+    @DisplayName("isValidAndMarketParticipant deve retornar false quando situacao nao e ATIVA")
     void deveRetornarFalseParaSituacaoInativa() {
-        BrasilApiCnpjDto dto = buildDto(4, 66126, "Corretoras de Títulos"); // 4 = BAIXADA
+        BrasilApiCnpjDto dto = buildDto(4, 66126, "Corretoras de Titulos");
         when(brasilApiClient.consultarCnpj("12345678000195")).thenReturn(dto);
 
         assertFalse(brasilApiAdapter.isValidAndMarketParticipant("12345678000195"));
     }
 
     @Test
-    @DisplayName("isValidAndMarketParticipant deve retornar false quando API lança exceção")
+    @DisplayName("isValidAndMarketParticipant deve retornar false quando API lanca excecao")
     void deveRetornarFalseQuandoApiFalha() {
         when(brasilApiClient.consultarCnpj("00000000000000")).thenThrow(new RuntimeException("Timeout"));
 
@@ -84,7 +97,7 @@ class BrasilApiAdapterTest {
     @Test
     @DisplayName("getCnpjInfo deve retornar CnpjInfo mapeada corretamente")
     void deveRetornarCnpjInfoMapeadaCorretamente() {
-        BrasilApiCnpjDto dto = buildDto(2, 66126, "Corretoras de Títulos");
+        BrasilApiCnpjDto dto = buildDto(2, 66126, "Corretoras de Titulos");
         when(brasilApiClient.consultarCnpj("02332886000104")).thenReturn(dto);
 
         ValidacaoCnpjPort.CnpjInfo info = brasilApiAdapter.getCnpjInfo("02332886000104");

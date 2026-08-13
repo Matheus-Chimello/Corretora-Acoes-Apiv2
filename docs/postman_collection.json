@@ -1,216 +1,134 @@
 {
   "info": {
-    "_postman_id": "510b8a48-6529-4707-b80f-dccd3d46d579",
-    "name": "ApiGestaoAcoesCorretoras",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "_exporter_id": "48996390",
-    "_collection_link": "https://go.postman.co/collection/48996390-510b8a48-6529-4707-b80f-dccd3d46d579?source=collection_link"
+    "name": "API Gestao de Acoes e Corretoras",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "adminToken", "value": "" },
+    { "key": "investorToken", "value": "" },
+    { "key": "corretoraId", "value": "" },
+    { "key": "acaoId", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
   },
   "item": [
     {
-      "name": "Acao",
+      "name": "Autenticacao",
       "item": [
         {
-          "name": "Cadastrar",
+          "name": "Login administrador",
           "request": {
+            "auth": { "type": "noauth" },
             "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\r\n    \"ticker\": \"VALE3\",\r\n    \"mercado\": \"BR\",\r\n    \"quantidadeCompra\" : 2.0\r\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "http://localhost:8080/acoes",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "acoes"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@corretora.local\",\n  \"password\": \"admin123\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/auth/login"
           },
-          "response": []
+          "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "pm.collectionVariables.set('adminToken', body.token);"] } }]
         },
         {
-          "name": "Listar",
+          "name": "Registrar usuario",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/acoes",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "acoes"
-              ]
-            }
-          },
-          "response": []
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Nova Conta\",\n  \"email\": \"nova.conta@exemplo.com\",\n  \"password\": \"senha123\",\n  \"confirmPassword\": \"senha123\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/auth/register"
+          }
         },
         {
-          "name": "Listar ID",
+          "name": "Login investidor",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/acoes/55c84456-28f1-48c8-a059-6a02dcf0af3c",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "acoes",
-                "55c84456-28f1-48c8-a059-6a02dcf0af3c"
-              ]
-            }
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"usuario@corretora.local\",\n  \"password\": \"user123\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/auth/login"
           },
-          "response": []
-        },
-        {
-          "name": "Listar Ticker",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/acoes/ticker/PETR4",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "acoes",
-                "ticker",
-                "PETR4"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Atualizar",
-          "request": {
-            "method": "PUT",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/acoes/55c84456-28f1-48c8-a059-6a02dcf0af3c/atualizar-cotacao",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "acoes",
-                "55c84456-28f1-48c8-a059-6a02dcf0af3c",
-                "atualizar-cotacao"
-              ]
-            }
-          },
-          "response": []
+          "event": [{ "listen": "test", "script": { "exec": ["const body = pm.response.json();", "pm.collectionVariables.set('investorToken', body.token);"] } }]
         }
       ]
     },
     {
-      "name": "Corretora",
+      "name": "Corretoras",
       "item": [
         {
-          "name": "Cadastrar",
+          "name": "Cadastrar corretora",
           "request": {
             "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\r\n    \"cnpj\": \"53931905000141\"\r\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "http://localhost:8080/corretoras",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "corretoras"
-              ]
-            }
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"cnpj\": \"02.332.886/0001-04\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/corretoras"
           },
-          "response": []
+          "event": [{ "listen": "test", "script": { "exec": ["pm.collectionVariables.set('corretoraId', pm.response.json().id);"] } }]
+        },
+        { "name": "Listar corretoras", "request": { "method": "GET", "url": "{{baseUrl}}/corretoras" } },
+        { "name": "Buscar corretora por ID", "request": { "method": "GET", "url": "{{baseUrl}}/corretoras/{{corretoraId}}" } },
+        { "name": "Buscar corretora por CNPJ", "request": { "method": "GET", "url": "{{baseUrl}}/corretoras/cnpj/02332886000104" } }
+      ]
+    },
+    {
+      "name": "Acoes",
+      "item": [
+        {
+          "name": "Cadastrar acao",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"ticker\": \"PETR4\",\n  \"mercado\": \"BR\",\n  \"corretoraId\": \"{{corretoraId}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/acoes"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.collectionVariables.set('acaoId', pm.response.json().id);"] } }]
+        },
+        { "name": "Listar acoes", "request": { "method": "GET", "url": "{{baseUrl}}/acoes" } },
+        { "name": "Buscar acao por ID", "request": { "method": "GET", "url": "{{baseUrl}}/acoes/{{acaoId}}" } },
+        { "name": "Buscar acao por ticker", "request": { "method": "GET", "url": "{{baseUrl}}/acoes/ticker/PETR4" } },
+        { "name": "Atualizar cotacao", "request": { "method": "PUT", "url": "{{baseUrl}}/acoes/{{acaoId}}/atualizar-cotacao" } },
+        {
+          "name": "Minhas posicoes",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{investorToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/acoes/minhas"
+          }
         },
         {
-          "name": "Listar",
+          "name": "Comprar para minha carteira",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/corretoras",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "corretoras"
-              ]
-            }
-          },
-          "response": []
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{investorToken}}", "type": "string" }] },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"quantidade\": 2\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/acoes/{{acaoId}}"
+          }
         },
         {
-          "name": "Listar ID",
+          "name": "Vender da minha carteira",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/corretoras/90a89cb5-f45d-40ca-85c2-f609e6b7b6db",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "corretoras",
-                "90a89cb5-f45d-40ca-85c2-f609e6b7b6db"
-              ]
-            }
-          },
-          "response": []
-        },
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{investorToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"quantidade\": 1\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/acoes/PETR4"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Carteira do investidor",
+      "item": [
         {
-          "name": "Listar CNPJ",
+          "name": "Realizar aporte",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8080/corretoras/cnpj/53931905000141",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8080",
-              "path": [
-                "corretoras",
-                "cnpj",
-                "53931905000141"
-              ]
-            }
-          },
-          "response": []
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{investorToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"valor\": 1000\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/carteiras/principal/aportes"
+          }
         }
       ]
     }

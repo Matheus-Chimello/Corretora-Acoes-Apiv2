@@ -6,6 +6,9 @@ import com.projeto.gestao.infra.client.dto.BrasilApiCnpjDto;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
+import java.text.Normalizer;
+import java.util.Locale;
+
 @Component
 public class BrasilApiAdapter implements ValidacaoCnpjPort {
 
@@ -21,17 +24,11 @@ public class BrasilApiAdapter implements ValidacaoCnpjPort {
             BrasilApiCnpjDto dto = brasilApiClient.consultarCnpj(cnpj);
             if (dto == null) return false;
 
-            // 2 = ATIVA
-            if (dto.getSituacaoCadastral() != 2) {
+            if (dto.getSituacaoCadastral() == null || dto.getSituacaoCadastral() != 2) {
                 return false;
             }
 
-            // CNAEs financeiros: 64xx (bancos/crédito) e 66xx (aux. financeiros/corretoras)
-            if (dto.getCnae_principal() != null && dto.getCnae_principal().getCodigo() != null) {
-                String cnae = String.valueOf(dto.getCnae_principal().getCodigo());
-                return cnae.startsWith("64") || cnae.startsWith("66");
-            }
-            return false;
+            return isMarketParticipant(dto);
         } catch (Exception e) {
             return false;
         }
@@ -59,5 +56,37 @@ public class BrasilApiAdapter implements ValidacaoCnpjPort {
             dto.getUf(),
             dto.getDescricaoSituacaoCadastral()
         );
+    }
+
+    private boolean isMarketParticipant(BrasilApiCnpjDto dto) {
+        if (dto.getCnae_principal() != null && dto.getCnae_principal().getCodigo() != null) {
+            String cnae = String.valueOf(dto.getCnae_principal().getCodigo());
+            if (cnae.startsWith("64") || cnae.startsWith("66")) {
+                return true;
+            }
+        }
+
+        String texto = normalize(String.join(" ",
+                safe(dto.getRazaoSocial()),
+                safe(dto.getNomeFantasia()),
+                dto.getCnae_principal() != null ? safe(dto.getCnae_principal().getDescricao()) : ""
+        ));
+
+        return texto.contains("CORRETORA")
+                || texto.contains("DISTRIBUIDORA DE TITULOS")
+                || texto.contains("TITULOS E VALORES MOBILIARIOS")
+                || texto.contains("CCTVM")
+                || texto.contains("DTVM")
+                || texto.contains("BANCO");
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value;
+    }
+
+    private String normalize(String value) {
+        return Normalizer.normalize(value, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toUpperCase(Locale.ROOT);
     }
 }

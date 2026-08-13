@@ -1,5 +1,6 @@
 package com.projeto.gestao.domain.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -15,6 +16,11 @@ public class Carteira {
     private BigDecimal saldoAcao =  BigDecimal.ZERO;
 
     private BigDecimal saldoEmConta = BigDecimal.ZERO;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id")
+    private Usuario usuario;
 
     public Carteira() {
     }
@@ -47,6 +53,14 @@ public class Carteira {
 
     public void setSaldoEmConta(BigDecimal saldoEmConta) {
         this.saldoEmConta = saldoEmConta;
+    }
+
+    public Usuario getUsuario() {
+        return usuario;
+    }
+
+    public void setUsuario(Usuario usuario) {
+        this.usuario = usuario;
     }
 
     @Override
