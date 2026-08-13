@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="001-criar-tabela-corretoras" author="curso">
+        <createTable tableName="corretoras">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true"
+                             primaryKeyName="pk_corretoras"
+                             nullable="false"/>
+            </column>
+            <column name="cnpj" type="VARCHAR(255)">
+                <constraints nullable="false"
+                             unique="true"
+                             uniqueConstraintName="uk_corretoras_cnpj"/>
+            </column>
+            <column name="razao_social" type="VARCHAR(255)"/>
+            <column name="nome_fantasia" type="VARCHAR(255)"/>
+            <column name="email" type="VARCHAR(255)"/>
+            <column name="telefone" type="VARCHAR(255)"/>
+            <column name="cep" type="VARCHAR(255)"/>
+            <column name="logradouro" type="VARCHAR(255)"/>
+            <column name="numero" type="VARCHAR(255)"/>
+            <column name="complemento" type="VARCHAR(255)"/>
+            <column name="bairro" type="VARCHAR(255)"/>
+            <column name="cidade" type="VARCHAR(255)"/>
+            <column name="uf" type="VARCHAR(255)"/>
+            <column name="situacao_cadastral" type="VARCHAR(255)"/>
+            <column name="validada_na_cvm" type="BOOLEAN"/>
+            <column name="data_cadastro" type="TIMESTAMP(6)"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="002-criar-tabela-usuarios" author="curso">
+        <createTable tableName="usuarios">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true"
+                             primaryKeyName="pk_usuarios"
+                             nullable="false"/>
+            </column>
+            <column name="nome" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="email" type="VARCHAR(255)">
+                <constraints nullable="false"
+                             unique="true"
+                             uniqueConstraintName="uk_usuarios_email"/>
+            </column>
+            <column name="senha_hash" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="papel" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="token_sessao" type="VARCHAR(255)">
+                <constraints unique="true"
+                             uniqueConstraintName="uk_usuarios_token_sessao"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="003-criar-tabela-carteira" author="curso">
+        <createTable tableName="carteira">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true"
+                             primaryKeyName="pk_carteira"
+                             nullable="false"/>
+            </column>
+            <column name="saldo_acao" type="NUMERIC(38,2)"/>
+            <column name="saldo_em_conta" type="NUMERIC(38,2)"/>
+            <column name="usuario_id" type="UUID"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="004-criar-tabela-acoes" author="curso">
+        <createTable tableName="acoes">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true"
+                             primaryKeyName="pk_acoes"
+                             nullable="false"/>
+            </column>
+            <column name="ticker" type="VARCHAR(255)">
+                <constraints nullable="false"
+                             unique="true"
+                             uniqueConstraintName="uk_acoes_ticker"/>
+            </column>
+            <column name="nome_empresa" type="VARCHAR(255)"/>
+            <column name="mercado" type="VARCHAR(255)"/>
+            <column name="moeda" type="VARCHAR(255)"/>
+            <column name="cotacao_atual" type="NUMERIC(38,2)"/>
+            <column name="data_hora_cotacao" type="TIMESTAMP(6)"/>
+            <column name="corretora_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="005-criar-tabela-posicoes-carteira" author="curso">
+        <createTable tableName="posicoes_carteira">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true"
+                             primaryKeyName="pk_posicoes_carteira"
+                             nullable="false"/>
+            </column>
+            <column name="carteira_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="acao_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quantidade_total" type="NUMERIC(38,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="preco_medio" type="NUMERIC(38,2)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint
+                tableName="posicoes_carteira"
+                columnNames="carteira_id, acao_id"
+                constraintName="uk_posicoes_carteira_carteira_acao"/>
+    </changeSet>
+
+    <changeSet id="006-criar-relacionamentos" author="curso">
+        <addForeignKeyConstraint
+                baseTableName="carteira"
+                baseColumnNames="usuario_id"
+                referencedTableName="usuarios"
+                referencedColumnNames="id"
+                constraintName="fk_carteira_usuarios"/>
+
+        <addForeignKeyConstraint
+                baseTableName="acoes"
+                baseColumnNames="corretora_id"
+                referencedTableName="corretoras"
+                referencedColumnNames="id"
+                constraintName="fk_acoes_corretoras"/>
+
+        <addForeignKeyConstraint
+                baseTableName="posicoes_carteira"
+                baseColumnNames="carteira_id"
+                referencedTableName="carteira"
+                referencedColumnNames="id"
+                constraintName="fk_posicoes_carteira_carteira"/>
+
+        <addForeignKeyConstraint
+                baseTableName="posicoes_carteira"
+                baseColumnNames="acao_id"
+                referencedTableName="acoes"
+                referencedColumnNames="id"
+                constraintName="fk_posicoes_carteira_acoes"/>
+    </changeSet>
+
+</databaseChangeLog>
