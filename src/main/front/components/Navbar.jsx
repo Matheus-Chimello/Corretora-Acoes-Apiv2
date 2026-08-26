@@ -11,12 +11,23 @@ const Navbar = ({ title }) => {
         navigate('/login', { replace: true });
     };
 
+    const displayName = currentUser?.name || currentUser?.nome || currentUser?.email?.split('@')[0] || 'Perfil';
+
     return (
         <header className="header">
-            <h1>{title}</h1>
+            <div className="header-brand">
+                <NavLink to="/" end className="brand" aria-label="Ir para a visão geral">
+                    <span className="brand-mark" aria-hidden="true">CA</span>
+                    <span className="brand-name">Corretora <strong>Ações</strong></span>
+                </NavLink>
+                <div className="page-title">
+                    <span>Carteira</span>
+                    <h1>{title}</h1>
+                </div>
+            </div>
             <nav className="nav-links">
                 <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : ''}>
-                    Dashboard
+                    Visão geral
                 </NavLink>
                 <NavLink to="/carteiras" className={({ isActive }) => isActive ? 'active' : ''}>
                     Carteira
@@ -29,7 +40,7 @@ const Navbar = ({ title }) => {
                 </NavLink>
             </nav>
             <div className="user-menu">
-                <span className="badge role-badge">{currentUser?.role || 'USER'}</span>
+                <span className="user-name">{displayName}</span>
                 <button type="button" className="btn btn-secondary btn-small" onClick={handleLogout}>
                     Sair
                 </button>

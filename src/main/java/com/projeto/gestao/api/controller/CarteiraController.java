@@ -64,7 +64,6 @@ public class CarteiraController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
     ) {
         Usuario usuario = usuarioAutenticado(autorizacao);
-        autenticacaoService.exigirAdministrador(usuario);
         return ResponseEntity.ok(carteiraService.calcularSaldoAcao(usuario));
     }
 
@@ -74,7 +73,6 @@ public class CarteiraController {
             @Valid @RequestBody AporteRequest payload
     ) {
         Usuario usuario = usuarioAutenticado(autorizacao);
-        autenticacaoService.exigirInvestidor(usuario);
         return ResponseEntity.ok(carteiraService.realizarAporte(usuario, payload.valor()));
     }
 
@@ -85,7 +83,6 @@ public class CarteiraController {
             @RequestBody Map<String, Object> payload
     ) {
         Usuario usuario = usuarioAutenticado(autorizacao);
-        autenticacaoService.exigirAdministrador(usuario);
         return ResponseEntity.ok(carteiraService.atualizarSaldoEmConta(usuario, id, saldo(payload.get("saldoEmConta"))));
     }
 

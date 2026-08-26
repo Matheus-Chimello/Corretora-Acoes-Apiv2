@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { apiFetch } from '../services/api';
-import { hasRole } from '../services/auth';
 
 const Corretoras = () => {
     // Estados para a tabela de corretoras
@@ -12,7 +11,6 @@ const Corretoras = () => {
     const [cnpjInput, setCnpjInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [mensagem, setMensagem] = useState({ texto: '', tipo: '' }); // tipo: 'success' ou 'error'
-    const canWrite = hasRole('ADMIN');
 
     // Função de carregamento inicial
     useEffect(() => {
@@ -98,6 +96,7 @@ const Corretoras = () => {
         <div className="container">
             <Navbar title="Corretoras" />
 
+            <main className="page-content">
             <section className="form-panel">
                 <h3>Adicionar Corretora</h3>
                 <form onSubmit={handleAdicionarCorretora} className="app-form search-form">
@@ -109,22 +108,18 @@ const Corretoras = () => {
                             placeholder="Apenas números ou formatado..."
                             value={cnpjInput}
                             onChange={(e) => setCnpjInput(e.target.value)}
-                            disabled={isLoading || !canWrite}
+                            disabled={isLoading}
                             className="form-input"
                         />
                     </div>
                     <button
                         type="submit"
-                        disabled={isLoading || !cnpjInput || !canWrite}
+                        disabled={isLoading || !cnpjInput}
                         className="btn btn-primary"
                     >
                         {isLoading ? 'Buscando...' : 'Adicionar'}
                     </button>
                 </form>
-
-                {!canWrite && (
-                    <div className="alert alert-warning">Usuário com permissão somente leitura.</div>
-                )}
 
                 {mensagem.texto && (
                     <div className={`alert ${getAlertClass(mensagem.tipo)}`}>
@@ -133,6 +128,13 @@ const Corretoras = () => {
                 )}
             </section>
             <div className="table-container">
+                <div className="table-heading">
+                    <div>
+                        <p className="eyebrow">Instituições</p>
+                        <h3>Corretoras cadastradas</h3>
+                    </div>
+                    <span className="table-count">{corretoras.length} {corretoras.length === 1 ? 'corretora' : 'corretoras'}</span>
+                </div>
 
                 {corretoras.length > 0 ? (
                     <table id="minhaTabela">
@@ -170,6 +172,7 @@ const Corretoras = () => {
                     </div>
                 )}
             </div>
+            </main>
         </div>
     );
 };

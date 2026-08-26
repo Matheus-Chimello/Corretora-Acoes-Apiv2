@@ -71,18 +71,6 @@ public class AutenticacaoService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sessão inválida ou expirada."));
     }
 
-    public void exigirAdministrador(Usuario usuario) {
-        if (usuario.getPapel() != PapelUsuario.ADMIN) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Esta operação exige permissão de administrador.");
-        }
-    }
-
-    public void exigirInvestidor(Usuario usuario) {
-        if (usuario.getPapel() != PapelUsuario.USER) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Esta operacao esta disponivel apenas para investidores.");
-        }
-    }
-
     public RespostaAutenticacao resposta(Usuario usuario) {
         return resposta(usuario, null);
     }

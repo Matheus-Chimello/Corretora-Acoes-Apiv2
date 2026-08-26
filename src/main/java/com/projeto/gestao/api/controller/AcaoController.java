@@ -49,8 +49,7 @@ public class AcaoController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @Valid @RequestBody AcaoRequest payload
     ) {
-        Usuario usuario = usuarioAutenticado(autorizacao);
-        autenticacaoService.exigirAdministrador(usuario);
+        usuarioAutenticado(autorizacao);
         var acao = acaoService.cadastrarAcao(payload.ticker(), payload.mercado(), payload.corretoraId());
         return ResponseEntity.status(HttpStatus.CREATED).body(AcaoResponse.from(acao));
     }
@@ -62,7 +61,6 @@ public class AcaoController {
             @Valid @RequestBody QuantidadeRequest payload
     ) {
         Usuario usuario = usuarioAutenticado(autorizacao);
-        autenticacaoService.exigirInvestidor(usuario);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(PosicaoAcaoResponse.from(carteiraService.venderAcao(usuario, ticker, payload.quantidade())));
     }
@@ -80,7 +78,6 @@ public class AcaoController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
     ) {
         Usuario usuario = usuarioAutenticado(autorizacao);
-        autenticacaoService.exigirInvestidor(usuario);
         return ResponseEntity.ok(carteiraService.listarPosicoes(usuario).stream().map(PosicaoAcaoResponse::from).toList());
     }
 
@@ -111,8 +108,7 @@ public class AcaoController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @PathVariable UUID id
     ) {
-        Usuario usuario = usuarioAutenticado(autorizacao);
-        autenticacaoService.exigirAdministrador(usuario);
+        usuarioAutenticado(autorizacao);
         return ResponseEntity.ok(AcaoResponse.from(acaoService.atualizarCotacao(id)));
     }
 
@@ -123,7 +119,6 @@ public class AcaoController {
             @Valid @RequestBody QuantidadeRequest payload
     ) {
         Usuario usuario = usuarioAutenticado(autorizacao);
-        autenticacaoService.exigirInvestidor(usuario);
         return ResponseEntity.ok(PosicaoAcaoResponse.from(carteiraService.comprarAcao(usuario, id, payload.quantidade())));
     }
 

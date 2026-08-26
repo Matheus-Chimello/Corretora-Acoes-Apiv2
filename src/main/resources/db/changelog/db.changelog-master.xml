@@ -7,5 +7,7 @@
 
     <include file="changes/001-criar-estrutura-inicial.xml"
              relativeToChangelogFile="true"/>
+    <include file="changes/002-inserir-catalogo-demonstracao.xml"
+             relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

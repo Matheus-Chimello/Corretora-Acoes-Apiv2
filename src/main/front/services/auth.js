@@ -125,5 +125,3 @@ export const getCurrentUser = () => {
 };
 
 export const isAuthenticated = () => Boolean(getCurrentUser());
-
-export const hasRole = (role) => getCurrentUser()?.role === role;

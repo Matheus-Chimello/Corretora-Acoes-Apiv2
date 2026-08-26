@@ -56,83 +56,99 @@ const Login = () => {
 
     return (
         <div className="login-page">
-            <section className="login-panel">
-                <div className="login-brand">
-                    <span className="ticker-badge">API</span>
-                    <h1>Gestão Financeira</h1>
-                </div>
+            <div className="login-layout">
+                <section className="login-context" aria-label="Corretora de Ações">
+                    <div className="brand login-brand">
+                        <span className="brand-mark" aria-hidden="true">CA</span>
+                        <span className="brand-name">Corretora <strong>Ações</strong></span>
+                    </div>
+                    <p className="eyebrow">Carteira de investimentos</p>
+                    <h1>Decisões melhores começam com uma visão clara.</h1>
+                    <div className="login-market-note">
+                        <span>Ações</span>
+                        <span>Corretoras</span>
+                        <span>Carteira</span>
+                    </div>
+                </section>
 
-                <form onSubmit={handleSubmit} className="modal-form">
-                    {isRegistering && (
+                <section className="login-panel">
+                    <div className="login-panel-heading">
+                        <p className="eyebrow">{isRegistering ? 'Nova conta' : 'Acesso à plataforma'}</p>
+                        <h2>{isRegistering ? 'Crie sua conta' : 'Boas-vindas de volta'}</h2>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="modal-form">
+                        {isRegistering && (
+                            <div className="field-group">
+                                <label>Nome</label>
+                                <input
+                                    type="text"
+                                    name="name"
+                                    value={formData.name}
+                                    onChange={handleInputChange}
+                                    className="form-input"
+                                    autoComplete="name"
+                                />
+                            </div>
+                        )}
+
                         <div className="field-group">
-                            <label>Nome</label>
+                            <label>Email</label>
                             <input
-                                type="text"
-                                name="name"
-                                value={formData.name}
+                                type="email"
+                                name="email"
+                                value={formData.email}
                                 onChange={handleInputChange}
                                 className="form-input"
-                                autoComplete="name"
+                                autoComplete={isRegistering ? 'email' : 'username'}
                             />
                         </div>
-                    )}
 
-                    <div className="field-group">
-                        <label>Email</label>
-                        <input
-                            type="email"
-                            name="email"
-                            value={formData.email}
-                            onChange={handleInputChange}
-                            className="form-input"
-                            autoComplete={isRegistering ? 'email' : 'username'}
-                        />
-                    </div>
-
-                    <div className="field-group">
-                        <label>Senha</label>
-                        <input
-                            type="password"
-                            name="password"
-                            value={formData.password}
-                            onChange={handleInputChange}
-                            className="form-input"
-                            autoComplete={isRegistering ? 'new-password' : 'current-password'}
-                        />
-                    </div>
-
-                    {isRegistering && (
                         <div className="field-group">
-                            <label>Confirmar senha</label>
+                            <label>Senha</label>
                             <input
                                 type="password"
-                                name="confirmPassword"
-                                value={formData.confirmPassword}
+                                name="password"
+                                value={formData.password}
                                 onChange={handleInputChange}
                                 className="form-input"
-                                autoComplete="new-password"
+                                autoComplete={isRegistering ? 'new-password' : 'current-password'}
                             />
                         </div>
+
+                        {isRegistering && (
+                            <div className="field-group">
+                                <label>Confirmar senha</label>
+                                <input
+                                    type="password"
+                                    name="confirmPassword"
+                                    value={formData.confirmPassword}
+                                    onChange={handleInputChange}
+                                    className="form-input"
+                                    autoComplete="new-password"
+                                />
+                            </div>
+                        )}
+
+                        <button type="submit" className="btn btn-primary login-button">
+                            {isRegistering ? 'Criar conta' : 'Entrar'}
+                        </button>
+                    </form>
+
+                    <div className="login-switch">
+                        <span>{isRegistering ? 'Já possui conta?' : 'Ainda não tem conta?'}</span>
+                        <button type="button" className="login-link-button" onClick={handleToggleMode}>
+                            {isRegistering ? 'Entrar' : 'Cadastre-se'}
+                        </button>
+                    </div>
+
+                    {mensagem && (
+                        <p className="alert alert-error">
+                            {mensagem}
+                        </p>
                     )}
-
-                    <button type="submit" className="btn btn-primary login-button">
-                        {isRegistering ? 'Criar conta' : 'Entrar'}
-                    </button>
-                </form>
-
-                <div className="login-switch">
-                    <span>{isRegistering ? 'Já possui conta?' : 'Ainda não tem conta?'}</span>
-                    <button type="button" className="login-link-button" onClick={handleToggleMode}>
-                        {isRegistering ? 'Entrar' : 'Cadastre-se'}
-                    </button>
-                </div>
-
-                {mensagem && (
-                    <p className="alert alert-error">
-                        {mensagem}
-                    </p>
-                )}
-            </section>
+                </section>
+            </div>
         </div>
     );
 };

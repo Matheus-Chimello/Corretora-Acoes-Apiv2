@@ -7,6 +7,7 @@ import Acoes from './pages/Acoes';
 import Carteiras from './pages/Carteiras';
 import Login from './pages/Login';
 import { isAuthenticated } from './services/auth';
+import MarketTicker from './components/MarketTicker';
 
 import './styles/index.css';
 
@@ -29,6 +30,7 @@ const PublicRoute = ({ children }) => {
 function App() {
     return (
         <Router>
+            <MarketTicker />
             <Routes>
                 <Route
                     path="/login"

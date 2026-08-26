@@ -39,8 +39,7 @@ public class CorretoraController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @Valid @RequestBody CorretoraRequest payload
     ) {
-        Usuario usuario = usuarioAutenticado(autorizacao);
-        autenticacaoService.exigirAdministrador(usuario);
+        usuarioAutenticado(autorizacao);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(CorretoraResponse.from(corretoraService.cadastrarCorretora(payload.cnpj())));
     }

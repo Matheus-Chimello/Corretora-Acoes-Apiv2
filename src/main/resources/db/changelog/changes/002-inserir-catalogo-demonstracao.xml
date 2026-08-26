@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="007-inserir-corretoras-demonstracao" author="curso">
+        <insert tableName="corretoras">
+            <column name="id" value="0ee808fa-b3c9-4d10-b5ee-257dc6cc0101"/>
+            <column name="cnpj" value="12345678000195"/>
+            <column name="razao_social" value="Corretora Vértice S.A. - Demonstração"/>
+            <column name="nome_fantasia" value="Vértice Investimentos"/>
+            <column name="email" value="contato@vertice.demo"/>
+            <column name="telefone" value="(11) 3000-1001"/>
+            <column name="cidade" value="São Paulo"/>
+            <column name="uf" value="SP"/>
+            <column name="situacao_cadastral" value="ATIVA"/>
+            <column name="validada_na_cvm" valueBoolean="true"/>
+            <column name="data_cadastro" valueComputed="CURRENT_TIMESTAMP"/>
+        </insert>
+        <insert tableName="corretoras">
+            <column name="id" value="0ee808fa-b3c9-4d10-b5ee-257dc6cc0102"/>
+            <column name="cnpj" value="98765432000110"/>
+            <column name="razao_social" value="Corretora Horizonte S.A. - Demonstração"/>
+            <column name="nome_fantasia" value="Horizonte Capital"/>
+            <column name="email" value="contato@horizonte.demo"/>
+            <column name="telefone" value="(21) 3000-1002"/>
+            <column name="cidade" value="Rio de Janeiro"/>
+            <column name="uf" value="RJ"/>
+            <column name="situacao_cadastral" value="ATIVA"/>
+            <column name="validada_na_cvm" valueBoolean="true"/>
+            <column name="data_cadastro" valueComputed="CURRENT_TIMESTAMP"/>
+        </insert>
+        <insert tableName="corretoras">
+            <column name="id" value="0ee808fa-b3c9-4d10-b5ee-257dc6cc0103"/>
+            <column name="cnpj" value="45678912000162"/>
+            <column name="razao_social" value="Corretora Áurea S.A. - Demonstração"/>
+            <column name="nome_fantasia" value="Áurea Investimentos"/>
+            <column name="email" value="contato@aurea.demo"/>
+            <column name="telefone" value="(31) 3000-1003"/>
+            <column name="cidade" value="Belo Horizonte"/>
+            <column name="uf" value="MG"/>
+            <column name="situacao_cadastral" value="ATIVA"/>
+            <column name="validada_na_cvm" valueBoolean="true"/>
+            <column name="data_cadastro" valueComputed="CURRENT_TIMESTAMP"/>
+        </insert>
+    </changeSet>
+
+    <changeSet id="008-inserir-acoes-demonstracao" author="curso">
+        <insert tableName="acoes">
+            <column name="id" value="b8b59c09-a40a-4cea-b7a7-96842c5d1001"/>
+            <column name="ticker" value="PETR4"/>
+            <column name="nome_empresa" value="Petrobras PN"/>
+            <column name="mercado" value="BR"/>
+            <column name="moeda" value="BRL"/>
+            <column name="cotacao_atual" valueNumeric="35.76"/>
+            <column name="data_hora_cotacao" valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="corretora_id" value="0ee808fa-b3c9-4d10-b5ee-257dc6cc0101"/>
+        </insert>
+        <insert tableName="acoes">
+            <column name="id" value="b8b59c09-a40a-4cea-b7a7-96842c5d1002"/>
+            <column name="ticker" value="VALE3"/>
+            <column name="nome_empresa" value="Vale ON"/>
+            <column name="mercado" value="BR"/>
+            <column name="moeda" value="BRL"/>
+            <column name="cotacao_atual" valueNumeric="64.12"/>
+            <column name="data_hora_cotacao" valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="corretora_id" value="0ee808fa-b3c9-4d10-b5ee-257dc6cc0102"/>
+        </insert>
+        <insert tableName="acoes">
+            <column name="id" value="b8b59c09-a40a-4cea-b7a7-96842c5d1003"/>
+            <column name="ticker" value="ITUB4"/>
+            <column name="nome_empresa" value="Itaú Unibanco PN"/>
+            <column name="mercado" value="BR"/>
+            <column name="moeda" value="BRL"/>
+            <column name="cotacao_atual" valueNumeric="31.58"/>
+            <column name="data_hora_cotacao" valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="corretora_id" value="0ee808fa-b3c9-4d10-b5ee-257dc6cc0101"/>
+        </insert>
+        <insert tableName="acoes">
+            <column name="id" value="b8b59c09-a40a-4cea-b7a7-96842c5d1004"/>
+            <column name="ticker" value="WEGE3"/>
+            <column name="nome_empresa" value="WEG ON"/>
+            <column name="mercado" value="BR"/>
+            <column name="moeda" value="BRL"/>
+            <column name="cotacao_atual" valueNumeric="41.20"/>
+            <column name="data_hora_cotacao" valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="corretora_id" value="0ee808fa-b3c9-4d10-b5ee-257dc6cc0103"/>
+        </insert>
+        <insert tableName="acoes">
+            <column name="id" value="b8b59c09-a40a-4cea-b7a7-96842c5d1005"/>
+            <column name="ticker" value="BBDC4"/>
+            <column name="nome_empresa" value="Banco Bradesco PN"/>
+            <column name="mercado" value="BR"/>
+            <column name="moeda" value="BRL"/>
+            <column name="cotacao_atual" valueNumeric="14.55"/>
+            <column name="data_hora_cotacao" valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="corretora_id" value="0ee808fa-b3c9-4d10-b5ee-257dc6cc0102"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

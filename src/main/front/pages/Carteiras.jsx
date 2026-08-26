@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import { apiFetch } from '../services/api';
-import { hasRole } from '../services/auth';
 import { getNomeCorretora } from '../services/corretoras';
 
 const formatCurrency = (value, currency = 'BRL') => Number(value || 0).toLocaleString('pt-BR', {
@@ -15,7 +14,6 @@ const Carteiras = () => {
     const [aporte, setAporte] = useState('');
     const [mensagem, setMensagem] = useState({ tipo: '', texto: '' });
     const [isLoading, setIsLoading] = useState(false);
-    const isInvestor = hasRole('USER');
 
     useEffect(() => {
         carregarDados();
@@ -75,9 +73,10 @@ const Carteiras = () => {
 
     return (
         <div className="container">
-            <Navbar title={isInvestor ? 'Minha Carteira' : 'Consulta de Carteiras'} />
+            <Navbar title="Minha Carteira" />
 
-            <main className="dashboard-cards carteira-summary">
+            <main className="page-content">
+            <section className="dashboard-cards carteira-summary">
                 <article className="card">
                     <h2>Saldo em Ações</h2>
                     <p>Valor consolidado das suas posições.</p>
@@ -93,9 +92,8 @@ const Carteiras = () => {
                     <p>Saldo em conta somado às posições.</p>
                     <div className="stat stat-money">{formatCurrency(saldoTotal)}</div>
                 </article>
-            </main>
+            </section>
 
-            {isInvestor ? (
                 <section className="form-panel">
                     <h3>Adicionar Saldo</h3>
                     <form onSubmit={realizarAporte} className="app-form search-form">
@@ -116,14 +114,17 @@ const Carteiras = () => {
                         </div>
                     </form>
                 </section>
-            ) : (
-                <p className="alert alert-warning">O administrador mantém o catálogo e as corretoras. Operações financeiras pertencem aos investidores.</p>
-            )}
 
             {mensagem.texto && <p className={`alert ${mensagem.tipo === 'error' ? 'alert-error' : 'alert-success'}`}>{mensagem.texto}</p>}
 
             <section className="table-container">
-                <h3>Minhas Posições</h3>
+                <div className="table-heading">
+                    <div>
+                        <p className="eyebrow">Composição</p>
+                        <h3>Minhas posições</h3>
+                    </div>
+                    <span className="table-count">{acoes.length} {acoes.length === 1 ? 'posição' : 'posições'}</span>
+                </div>
                 {acoes.length > 0 ? (
                     <table id="minhaTabela">
                         <thead>
@@ -153,6 +154,7 @@ const Carteiras = () => {
                     </table>
                 ) : <div className="empty-state"><p>Nenhuma posição cadastrada na carteira.</p></div>}
             </section>
+            </main>
         </div>
     );
 };

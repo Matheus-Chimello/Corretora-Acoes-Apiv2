@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Navbar from '../components/Navbar';
 import { apiFetch } from '../services/api';
-import { hasRole } from '../services/auth';
 import { getNomeCorretora } from '../services/corretoras';
 
 const formatCurrency = (value, currency = 'BRL') => Number(value || 0).toLocaleString('pt-BR', {
@@ -23,8 +22,6 @@ const Acoes = () => {
     const [venda, setVenda] = useState({ acaoId: '', quantidade: '' });
     const [mensagem, setMensagem] = useState({ tipo: '', texto: '' });
     const [vendaAberta, setVendaAberta] = useState(false);
-    const isAdmin = hasRole('ADMIN');
-    const isInvestor = hasRole('USER');
 
     useEffect(() => {
         carregarDados();
@@ -35,7 +32,7 @@ const Acoes = () => {
             const requisicoes = [
                 apiFetch('/acoes'),
                 apiFetch('/corretoras'),
-                isInvestor ? apiFetch('/acoes/minhas') : Promise.resolve(null)
+                apiFetch('/acoes/minhas')
             ];
             const [catalogoResponse, corretorasResponse, posicoesResponse] = await Promise.all(requisicoes);
 
@@ -46,14 +43,10 @@ const Acoes = () => {
             setCatalogo(await catalogoResponse.json());
             setCorretoras((await corretorasResponse.json()).filter((corretora) => corretora.validadaNaCvm === true));
 
-            if (posicoesResponse) {
-                if (!posicoesResponse.ok) {
-                    throw new Error(await getErrorMessage(posicoesResponse, 'Não foi possível carregar sua carteira.'));
-                }
-                setPosicoes(await posicoesResponse.json());
-            } else {
-                setPosicoes([]);
+            if (!posicoesResponse.ok) {
+                throw new Error(await getErrorMessage(posicoesResponse, 'Não foi possível carregar sua carteira.'));
             }
+            setPosicoes(await posicoesResponse.json());
         } catch (error) {
             setMensagem({ tipo: 'error', texto: error.message });
         }
@@ -138,9 +131,9 @@ const Acoes = () => {
 
     return (
         <div className="container">
-            <Navbar title={isAdmin ? 'Catálogo de Ações' : 'Negociação de Ações'} />
+            <Navbar title="Ações" />
 
-            {isAdmin && (
+            <main className="page-content">
                 <section className="form-panel">
                     <h3>Cadastrar Ativo no Catálogo</h3>
                     <form onSubmit={cadastrarAcao} className="app-form">
@@ -185,9 +178,7 @@ const Acoes = () => {
                     </form>
                     {corretoras.length === 0 && <p className="alert alert-warning">Cadastre uma corretora validada antes de incluir ações.</p>}
                 </section>
-            )}
 
-            {isInvestor && (
                 <section className="form-panel">
                     <h3>Comprar Ação</h3>
                     <form onSubmit={comprarAcao} className="app-form">
@@ -223,12 +214,17 @@ const Acoes = () => {
                         </div>
                     </form>
                 </section>
-            )}
 
             {mensagem.texto && <p className={`alert ${mensagem.tipo === 'error' ? 'alert-error' : 'alert-success'}`}>{mensagem.texto}</p>}
 
             <section className="table-container">
-                <h3>Ativos Disponíveis</h3>
+                <div className="table-heading">
+                    <div>
+                        <p className="eyebrow">Catálogo</p>
+                        <h3>Ativos disponíveis</h3>
+                    </div>
+                    <span className="table-count">{catalogo.length} {catalogo.length === 1 ? 'ativo' : 'ativos'}</span>
+                </div>
                 {catalogo.length > 0 ? (
                     <table id="catalogoAcoes">
                         <thead>
@@ -257,9 +253,14 @@ const Acoes = () => {
                 ) : <div className="empty-state"><p>Nenhum ativo cadastrado no catálogo.</p></div>}
             </section>
 
-            {isInvestor && (
                 <section className="table-container">
-                    <h3>Minhas Posições</h3>
+                    <div className="table-heading">
+                        <div>
+                            <p className="eyebrow">Carteira</p>
+                            <h3>Minhas posições</h3>
+                        </div>
+                        <span className="table-count">{posicoes.length} {posicoes.length === 1 ? 'posição' : 'posições'}</span>
+                    </div>
                     {posicoes.length > 0 ? (
                         <table id="minhasPosicoes">
                             <thead>
@@ -285,7 +286,6 @@ const Acoes = () => {
                         </table>
                     ) : <div className="empty-state"><p>Você ainda não possui ações na carteira.</p></div>}
                 </section>
-            )}
 
             {vendaAberta && (
                 <div className="modal-overlay">
@@ -327,6 +327,7 @@ const Acoes = () => {
                     </div>
                 </div>
             )}
+            </main>
         </div>
     );
 };
