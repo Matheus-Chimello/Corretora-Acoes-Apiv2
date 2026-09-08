@@ -2,12 +2,9 @@ package com.projeto.gestao.api.controller;
 
 import com.projeto.gestao.domain.dto.AcaoRequest;
 import com.projeto.gestao.domain.dto.AcaoResponse;
-import com.projeto.gestao.domain.dto.PosicaoAcaoResponse;
-import com.projeto.gestao.domain.dto.QuantidadeRequest;
 import com.projeto.gestao.domain.model.Usuario;
 import com.projeto.gestao.service.AcaoService;
 import com.projeto.gestao.service.AutenticacaoService;
-import com.projeto.gestao.service.CarteiraService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -27,21 +24,18 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/acoes")
-@CrossOrigin(origins = {"http://localhost:5173", "http://127.0.0.1:5173"})
+@CrossOrigin(origins = {"http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:8082", "http://127.0.0.1:8082"})
 public class AcaoController {
 
     private final AcaoService acaoService;
     private final AutenticacaoService autenticacaoService;
-    private final CarteiraService carteiraService;
 
     public AcaoController(
             AcaoService acaoService,
-            AutenticacaoService autenticacaoService,
-            CarteiraService carteiraService
+            AutenticacaoService autenticacaoService
     ) {
         this.acaoService = acaoService;
         this.autenticacaoService = autenticacaoService;
-        this.carteiraService = carteiraService;
     }
 
     @PostMapping
@@ -50,19 +44,8 @@ public class AcaoController {
             @Valid @RequestBody AcaoRequest payload
     ) {
         usuarioAutenticado(autorizacao);
-        var acao = acaoService.cadastrarAcao(payload.ticker(), payload.mercado(), payload.corretoraId());
+        var acao = acaoService.cadastrarAcao(payload.ticker(), payload.mercado());
         return ResponseEntity.status(HttpStatus.CREATED).body(AcaoResponse.from(acao));
-    }
-
-    @PostMapping("/{ticker}")
-    public ResponseEntity<PosicaoAcaoResponse> venderAcao(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
-            @PathVariable String ticker,
-            @Valid @RequestBody QuantidadeRequest payload
-    ) {
-        Usuario usuario = usuarioAutenticado(autorizacao);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(PosicaoAcaoResponse.from(carteiraService.venderAcao(usuario, ticker, payload.quantidade())));
     }
 
     @GetMapping
@@ -71,14 +54,6 @@ public class AcaoController {
     ) {
         usuarioAutenticado(autorizacao);
         return ResponseEntity.ok(acaoService.listarTodas().stream().map(AcaoResponse::from).toList());
-    }
-
-    @GetMapping("/minhas")
-    public ResponseEntity<List<PosicaoAcaoResponse>> listarMinhasAcoes(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
-    ) {
-        Usuario usuario = usuarioAutenticado(autorizacao);
-        return ResponseEntity.ok(carteiraService.listarPosicoes(usuario).stream().map(PosicaoAcaoResponse::from).toList());
     }
 
     @GetMapping("/{id}")
@@ -110,16 +85,6 @@ public class AcaoController {
     ) {
         usuarioAutenticado(autorizacao);
         return ResponseEntity.ok(AcaoResponse.from(acaoService.atualizarCotacao(id)));
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<PosicaoAcaoResponse> comprarAcao(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
-            @PathVariable UUID id,
-            @Valid @RequestBody QuantidadeRequest payload
-    ) {
-        Usuario usuario = usuarioAutenticado(autorizacao);
-        return ResponseEntity.ok(PosicaoAcaoResponse.from(carteiraService.comprarAcao(usuario, id, payload.quantidade())));
     }
 
     private Usuario usuarioAutenticado(String autorizacao) {

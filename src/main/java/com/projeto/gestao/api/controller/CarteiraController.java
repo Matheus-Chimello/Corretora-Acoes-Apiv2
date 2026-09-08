@@ -1,6 +1,10 @@
 package com.projeto.gestao.api.controller;
 
 import com.projeto.gestao.domain.dto.AporteRequest;
+import com.projeto.gestao.domain.dto.CompraAcaoRequest;
+import com.projeto.gestao.domain.dto.PosicaoAcaoResponse;
+import com.projeto.gestao.domain.dto.TransacaoCarteiraResponse;
+import com.projeto.gestao.domain.dto.VendaAcaoRequest;
 import com.projeto.gestao.domain.model.Carteira;
 import com.projeto.gestao.domain.model.Usuario;
 import com.projeto.gestao.service.AutenticacaoService;
@@ -21,10 +25,11 @@ import org.springframework.web.bind.annotation.RestController;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/carteiras")
-@CrossOrigin(origins = {"http://localhost:5173", "http://127.0.0.1:5173"})
+@CrossOrigin(origins = {"http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:8082", "http://127.0.0.1:8082"})
 public class CarteiraController {
 
     private final CarteiraService carteiraService;
@@ -47,6 +52,56 @@ public class CarteiraController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
     ) {
         return ResponseEntity.ok(carteiraService.buscarCarteiraPrincipal(usuarioAutenticado(autorizacao)));
+    }
+
+    @GetMapping("/principal/posicoes")
+    public ResponseEntity<List<PosicaoAcaoResponse>> listarPosicoes(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
+    ) {
+        Usuario usuario = usuarioAutenticado(autorizacao);
+        return ResponseEntity.ok(carteiraService.listarPosicoes(usuario).stream().map(PosicaoAcaoResponse::from).toList());
+    }
+
+    @GetMapping("/principal/transacoes")
+    public ResponseEntity<List<TransacaoCarteiraResponse>> listarTransacoes(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
+    ) {
+        Usuario usuario = usuarioAutenticado(autorizacao);
+        return ResponseEntity.ok(carteiraService.listarTransacoes(usuario).stream().map(TransacaoCarteiraResponse::from).toList());
+    }
+
+    @PutMapping("/principal/atualizar-cotacoes")
+    public ResponseEntity<List<PosicaoAcaoResponse>> atualizarCotacoes(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
+    ) {
+        Usuario usuario = usuarioAutenticado(autorizacao);
+        return ResponseEntity.ok(carteiraService.atualizarCotacoesDasPosicoes(usuario).stream()
+                .map(PosicaoAcaoResponse::from)
+                .toList());
+    }
+
+    @PostMapping("/principal/acoes/{acaoId}/compras")
+    public ResponseEntity<PosicaoAcaoResponse> comprarAcao(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
+            @PathVariable UUID acaoId,
+            @Valid @RequestBody CompraAcaoRequest payload
+    ) {
+        Usuario usuario = usuarioAutenticado(autorizacao);
+        return ResponseEntity.ok(PosicaoAcaoResponse.from(
+                carteiraService.comprarAcao(usuario, acaoId, payload.corretoraId(), payload.quantidade())
+        ));
+    }
+
+    @PostMapping("/principal/posicoes/{posicaoId}/vendas")
+    public ResponseEntity<PosicaoAcaoResponse> venderAcao(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
+            @PathVariable UUID posicaoId,
+            @Valid @RequestBody VendaAcaoRequest payload
+    ) {
+        Usuario usuario = usuarioAutenticado(autorizacao);
+        return ResponseEntity.ok(PosicaoAcaoResponse.from(
+                carteiraService.venderAcao(usuario, posicaoId, payload.quantidade(), payload.valorUnitario())
+        ));
     }
 
     @GetMapping("/{id}")

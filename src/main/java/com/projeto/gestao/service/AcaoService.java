@@ -1,10 +1,8 @@
 package com.projeto.gestao.service;
 
 import com.projeto.gestao.domain.model.Acao;
-import com.projeto.gestao.domain.model.Corretora;
 import com.projeto.gestao.domain.port.CotacaoAcaoPort;
 import com.projeto.gestao.repository.AcaoRepository;
-import com.projeto.gestao.repository.CorretoraRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,21 +16,18 @@ public class AcaoService {
 
     private final AcaoRepository acaoRepository;
     private final CotacaoAcaoPort cotacaoAcaoPort;
-    private final CorretoraRepository corretoraRepository;
 
     public AcaoService(
             AcaoRepository acaoRepository,
-            CotacaoAcaoPort cotacaoAcaoPort,
-            CorretoraRepository corretoraRepository
+            CotacaoAcaoPort cotacaoAcaoPort
     ) {
         this.acaoRepository = acaoRepository;
         this.cotacaoAcaoPort = cotacaoAcaoPort;
-        this.corretoraRepository = corretoraRepository;
     }
 
     @Transactional
-    public Acao cadastrarAcao(String ticker, String mercado, UUID corretoraId) {
-        validarDadosCadastro(ticker, mercado, corretoraId);
+    public Acao cadastrarAcao(String ticker, String mercado) {
+        validarDadosCadastro(ticker, mercado);
 
         String tickerNormalizado = ticker.trim().toUpperCase();
         String mercadoNormalizado = mercado.trim().toUpperCase();
@@ -40,7 +35,6 @@ public class AcaoService {
             throw new IllegalArgumentException("Ja existe uma acao cadastrada para este ticker.");
         }
 
-        Corretora corretora = buscarCorretoraObrigatoria(corretoraId);
         CotacaoAcaoPort.CotacaoInfo cotacaoInfo = consultarCotacao(tickerNormalizado, mercadoNormalizado);
 
         Acao acao = new Acao();
@@ -49,7 +43,6 @@ public class AcaoService {
         acao.setMercado(mercadoNormalizado);
         acao.setMoeda(cotacaoInfo.moeda());
         acao.setCotacaoAtual(cotacaoInfo.cotacaoAtual());
-        acao.setCorretoraRelacionada(corretora);
         acao.setDataHoraCotacao(LocalDateTime.now());
         return acaoRepository.save(acao);
     }
@@ -81,19 +74,10 @@ public class AcaoService {
         return acaoRepository.findByTicker(ticker.trim().toUpperCase());
     }
 
-    private void validarDadosCadastro(String ticker, String mercado, UUID corretoraId) {
-        if (ticker == null || ticker.isBlank() || mercado == null || mercado.isBlank() || corretoraId == null) {
-            throw new IllegalArgumentException("Ticker, mercado e corretora sao obrigatorios.");
+    private void validarDadosCadastro(String ticker, String mercado) {
+        if (ticker == null || ticker.isBlank() || mercado == null || mercado.isBlank()) {
+            throw new IllegalArgumentException("Ticker e mercado sao obrigatorios.");
         }
-    }
-
-    private Corretora buscarCorretoraObrigatoria(UUID corretoraId) {
-        Corretora corretora = corretoraRepository.findById(corretoraId)
-                .orElseThrow(() -> new IllegalArgumentException("Corretora nao encontrada."));
-        if (!Boolean.TRUE.equals(corretora.getValidadaNaCvm())) {
-            throw new IllegalArgumentException("Acoes so podem ser cadastradas em corretoras validadas na CVM.");
-        }
-        return corretora;
     }
 
     private CotacaoAcaoPort.CotacaoInfo consultarCotacao(String ticker, String mercado) {

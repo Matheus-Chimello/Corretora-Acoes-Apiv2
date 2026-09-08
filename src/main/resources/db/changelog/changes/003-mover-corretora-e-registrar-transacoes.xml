@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="009-mover-corretora-para-posicao" author="matheus">
+        <addColumn tableName="posicoes_carteira">
+            <column name="corretora_id" type="UUID"/>
+        </addColumn>
+
+        <sql>
+            UPDATE posicoes_carteira
+            SET corretora_id = (
+                SELECT corretora_id
+                FROM acoes
+                WHERE acoes.id = posicoes_carteira.acao_id
+            )
+        </sql>
+
+        <addNotNullConstraint tableName="posicoes_carteira"
+                              columnName="corretora_id"
+                              columnDataType="UUID"/>
+
+        <dropUniqueConstraint tableName="posicoes_carteira"
+                              constraintName="uk_posicoes_carteira_carteira_acao"/>
+        <addUniqueConstraint tableName="posicoes_carteira"
+                             columnNames="carteira_id, acao_id, corretora_id"
+                             constraintName="uk_posicoes_carteira_carteira_acao_corretora"/>
+
+        <addForeignKeyConstraint baseTableName="posicoes_carteira"
+                                 baseColumnNames="corretora_id"
+                                 referencedTableName="corretoras"
+                                 referencedColumnNames="id"
+                                 constraintName="fk_posicoes_carteira_corretoras"/>
+
+        <dropForeignKeyConstraint baseTableName="acoes"
+                                  constraintName="fk_acoes_corretoras"/>
+        <dropColumn tableName="acoes" columnName="corretora_id"/>
+    </changeSet>
+
+    <changeSet id="010-criar-tabela-transacoes-carteira" author="matheus">
+        <createTable tableName="transacoes_carteira">
+            <column name="id" type="UUID">
+                <constraints primaryKey="true"
+                             primaryKeyName="pk_transacoes_carteira"
+                             nullable="false"/>
+            </column>
+            <column name="carteira_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="acao_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="corretora_id" type="UUID">
+                <constraints nullable="false"/>
+            </column>
+            <column name="tipo" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quantidade" type="NUMERIC(38,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="preco_unitario" type="NUMERIC(38,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="valor_total" type="NUMERIC(38,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="data_hora" type="TIMESTAMP(6)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="transacoes_carteira"
+                                 baseColumnNames="carteira_id"
+                                 referencedTableName="carteira"
+                                 referencedColumnNames="id"
+                                 constraintName="fk_transacoes_carteira"/>
+        <addForeignKeyConstraint baseTableName="transacoes_carteira"
+                                 baseColumnNames="acao_id"
+                                 referencedTableName="acoes"
+                                 referencedColumnNames="id"
+                                 constraintName="fk_transacoes_acoes"/>
+        <addForeignKeyConstraint baseTableName="transacoes_carteira"
+                                 baseColumnNames="corretora_id"
+                                 referencedTableName="corretoras"
+                                 referencedColumnNames="id"
+                                 constraintName="fk_transacoes_corretoras"/>
+    </changeSet>
+
+</databaseChangeLog>

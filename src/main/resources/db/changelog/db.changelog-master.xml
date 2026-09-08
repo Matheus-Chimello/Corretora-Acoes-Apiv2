@@ -9,5 +9,9 @@
              relativeToChangelogFile="true"/>
     <include file="changes/002-inserir-catalogo-demonstracao.xml"
              relativeToChangelogFile="true"/>
+    <include file="changes/003-mover-corretora-e-registrar-transacoes.xml"
+             relativeToChangelogFile="true"/>
+    <include file="changes/004-registrar-aportes-na-carteira.xml"
+             relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

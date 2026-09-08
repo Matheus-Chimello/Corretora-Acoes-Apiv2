@@ -14,17 +14,12 @@ public record AcaoResponse(
         String mercado,
         String moeda,
         BigDecimal cotacaoAtual,
-        LocalDateTime dataHoraCotacao,
-        CorretoraResumo corretoraRelacionada
+        LocalDateTime dataHoraCotacao
 ) {
     public static AcaoResponse from(Acao acao) {
-        Corretora corretora = acao.getCorretoraRelacionada();
-        CorretoraResumo resumo = corretora == null ? null : new CorretoraResumo(
-                corretora.getId(), corretora.getRazaoSocial(), corretora.getNomeFantasia(), corretora.getCnpj()
-        );
         return new AcaoResponse(
                 acao.getId(), acao.getTicker(), acao.getNomeEmpresa(), acao.getMercado(), acao.getMoeda(),
-                acao.getCotacaoAtual(), acao.getDataHoraCotacao(), resumo
+                acao.getCotacaoAtual(), acao.getDataHoraCotacao()
         );
     }
 

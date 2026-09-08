@@ -2,10 +2,15 @@ package com.projeto.gestao.service;
 
 import com.projeto.gestao.domain.model.Acao;
 import com.projeto.gestao.domain.model.Carteira;
+import com.projeto.gestao.domain.model.Corretora;
 import com.projeto.gestao.domain.model.PosicaoCarteira;
+import com.projeto.gestao.domain.model.TipoTransacao;
+import com.projeto.gestao.domain.model.TransacaoCarteira;
 import com.projeto.gestao.domain.model.Usuario;
 import com.projeto.gestao.repository.CarteiraRepository;
+import com.projeto.gestao.repository.CorretoraRepository;
 import com.projeto.gestao.repository.PosicaoCarteiraRepository;
+import com.projeto.gestao.repository.TransacaoCarteiraRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +18,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class CarteiraService {
@@ -20,30 +26,38 @@ public class CarteiraService {
     private final CarteiraRepository carteiraRepository;
     private final PosicaoCarteiraRepository posicaoCarteiraRepository;
     private final AcaoService acaoService;
+    private final CorretoraRepository corretoraRepository;
+    private final TransacaoCarteiraRepository transacaoCarteiraRepository;
 
     public CarteiraService(
             CarteiraRepository carteiraRepository,
             PosicaoCarteiraRepository posicaoCarteiraRepository,
-            AcaoService acaoService
+            AcaoService acaoService,
+            CorretoraRepository corretoraRepository,
+            TransacaoCarteiraRepository transacaoCarteiraRepository
     ) {
         this.carteiraRepository = carteiraRepository;
         this.posicaoCarteiraRepository = posicaoCarteiraRepository;
         this.acaoService = acaoService;
+        this.corretoraRepository = corretoraRepository;
+        this.transacaoCarteiraRepository = transacaoCarteiraRepository;
     }
 
     @Transactional
-    public PosicaoCarteira comprarAcao(Usuario usuario, java.util.UUID acaoId, BigDecimal quantidade) {
+    public PosicaoCarteira comprarAcao(Usuario usuario, UUID acaoId, UUID corretoraId, BigDecimal quantidade) {
         validarQuantidade(quantidade);
         Carteira carteira = buscarCarteiraPrincipal(usuario);
         Acao acao = acaoService.atualizarCotacao(acaoId);
+        Corretora corretora = buscarCorretoraObrigatoria(corretoraId);
         BigDecimal valorCompra = acao.getCotacaoAtual().multiply(quantidade);
 
         if (carteira.getSaldoEmConta().compareTo(valorCompra) < 0) {
             throw new IllegalArgumentException("Saldo em conta insuficiente para esta compra.");
         }
 
-        PosicaoCarteira posicao = posicaoCarteiraRepository.findByCarteiraIdAndAcaoId(carteira.getId(), acaoId)
-                .orElseGet(() -> novaPosicao(carteira, acao));
+        PosicaoCarteira posicao = posicaoCarteiraRepository
+                .findByCarteiraIdAndAcaoIdAndCorretoraId(carteira.getId(), acaoId, corretoraId)
+                .orElseGet(() -> novaPosicao(carteira, acao, corretora));
         BigDecimal quantidadeAnterior = posicao.getQuantidadeTotal();
         BigDecimal novaQuantidade = quantidadeAnterior.add(quantidade);
         BigDecimal precoMedio = posicao.getPrecoMedio().multiply(quantidadeAnterior)
@@ -55,27 +69,30 @@ public class CarteiraService {
         carteira.setSaldoEmConta(carteira.getSaldoEmConta().subtract(valorCompra));
         carteiraRepository.save(carteira);
         PosicaoCarteira salva = posicaoCarteiraRepository.save(posicao);
+        registrarTransacao(carteira, acao, corretora, TipoTransacao.COMPRA, quantidade, acao.getCotacaoAtual(), valorCompra);
         calcularSaldoAcao(usuario);
         return salva;
     }
 
     @Transactional
-    public PosicaoCarteira venderAcao(Usuario usuario, String ticker, BigDecimal quantidade) {
+    public PosicaoCarteira venderAcao(Usuario usuario, UUID posicaoId, BigDecimal quantidade, BigDecimal valorUnitario) {
         validarQuantidade(quantidade);
+        validarValorUnitario(valorUnitario);
         Carteira carteira = buscarCarteiraPrincipal(usuario);
         PosicaoCarteira posicao = posicaoCarteiraRepository
-                .findByCarteiraIdAndAcaoTickerIgnoreCase(carteira.getId(), ticker)
-                .orElseThrow(() -> new IllegalArgumentException("Acao nao encontrada na sua carteira."));
+                .findByIdAndCarteiraId(posicaoId, carteira.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Posicao nao encontrada na sua carteira."));
 
         if (quantidade.compareTo(posicao.getQuantidadeTotal()) > 0) {
             throw new IllegalArgumentException("Quantidade de venda nao pode ser maior que a quantidade disponivel.");
         }
 
-        Acao acao = acaoService.atualizarCotacao(posicao.getAcao().getId());
-        BigDecimal valorVenda = acao.getCotacaoAtual().multiply(quantidade);
+        Acao acao = posicao.getAcao();
+        BigDecimal valorVenda = valorUnitario.multiply(quantidade);
         BigDecimal quantidadeRestante = posicao.getQuantidadeTotal().subtract(quantidade);
         carteira.setSaldoEmConta(carteira.getSaldoEmConta().add(valorVenda));
         carteiraRepository.save(carteira);
+        registrarTransacao(carteira, acao, posicao.getCorretora(), TipoTransacao.VENDA, quantidade, valorUnitario, valorVenda);
 
         if (quantidadeRestante.signum() == 0) {
             posicaoCarteiraRepository.delete(posicao);
@@ -95,7 +112,9 @@ public class CarteiraService {
         validarQuantidade(valor);
         Carteira carteira = buscarCarteiraPrincipal(usuario);
         carteira.setSaldoEmConta(carteira.getSaldoEmConta().add(valor));
-        return carteiraRepository.save(carteira);
+        Carteira salva = carteiraRepository.save(carteira);
+        registrarTransacao(salva, null, null, TipoTransacao.APORTE, BigDecimal.ONE, valor, valor);
+        return salva;
     }
 
     @Transactional
@@ -132,6 +151,24 @@ public class CarteiraService {
                 .toList();
     }
 
+    public List<TransacaoCarteira> listarTransacoes(Usuario usuario) {
+        Carteira carteira = buscarCarteiraPrincipal(usuario);
+        return transacaoCarteiraRepository.findAllByCarteiraIdOrderByDataHoraDesc(carteira.getId());
+    }
+
+    @Transactional
+    public List<PosicaoCarteira> atualizarCotacoesDasPosicoes(Usuario usuario) {
+        List<PosicaoCarteira> posicoes = listarPosicoes(usuario);
+
+        posicoes.stream()
+                .map(posicao -> posicao.getAcao().getId())
+                .distinct()
+                .forEach(acaoService::atualizarCotacao);
+
+        calcularSaldoAcao(usuario);
+        return listarPosicoes(usuario);
+    }
+
     public BigDecimal valorAtual(PosicaoCarteira posicao) {
         BigDecimal cotacao = posicao.getAcao().getCotacaoAtual() == null ? BigDecimal.ZERO : posicao.getAcao().getCotacaoAtual();
         return posicao.getQuantidadeTotal().multiply(cotacao);
@@ -151,11 +188,48 @@ public class CarteiraService {
         }
     }
 
-    private PosicaoCarteira novaPosicao(Carteira carteira, Acao acao) {
+    private void validarValorUnitario(BigDecimal valorUnitario) {
+        if (valorUnitario == null || valorUnitario.signum() <= 0) {
+            throw new IllegalArgumentException("Valor unitario deve ser maior que zero.");
+        }
+    }
+
+    private PosicaoCarteira novaPosicao(Carteira carteira, Acao acao, Corretora corretora) {
         PosicaoCarteira posicao = new PosicaoCarteira();
         posicao.setCarteira(carteira);
         posicao.setAcao(acao);
+        posicao.setCorretora(corretora);
         return posicao;
+    }
+
+    private Corretora buscarCorretoraObrigatoria(UUID corretoraId) {
+        Corretora corretora = corretoraRepository.findById(corretoraId)
+                .orElseThrow(() -> new IllegalArgumentException("Corretora nao encontrada."));
+        if (!Boolean.TRUE.equals(corretora.getValidadaNaCvm())) {
+            throw new IllegalArgumentException("A compra exige uma corretora validada na CVM.");
+        }
+        return corretora;
+    }
+
+    private void registrarTransacao(
+            Carteira carteira,
+            Acao acao,
+            Corretora corretora,
+            TipoTransacao tipo,
+            BigDecimal quantidade,
+            BigDecimal precoUnitario,
+            BigDecimal valorTotal
+    ) {
+        TransacaoCarteira transacao = new TransacaoCarteira();
+        transacao.setCarteira(carteira);
+        transacao.setAcao(acao);
+        transacao.setCorretora(corretora);
+        transacao.setTipo(tipo);
+        transacao.setQuantidade(quantidade);
+        transacao.setPrecoUnitario(precoUnitario);
+        transacao.setValorTotal(valorTotal);
+        transacao.setDataHora(java.time.LocalDateTime.now());
+        transacaoCarteiraRepository.save(transacao);
     }
 
     private Carteira criarCarteira(Usuario usuario) {

@@ -13,6 +13,7 @@ import {
     YAxis
 } from 'recharts';
 import Navbar from '../components/Navbar';
+import PortfolioOverview from '../components/PortfolioOverview';
 import { apiFetch } from '../services/api';
 
 const CHART_COLORS = ['#0b7b67', '#e3a832', '#d64d69', '#3478c6', '#7a9e56', '#6b7280'];
@@ -25,9 +26,23 @@ const formatCurrency = (value, currency = 'BRL') => {
     });
 };
 
-const getNomeCorretora = (acao) => (
-    acao?.corretoraRelacionada?.nomeFantasia
-    || acao?.corretoraRelacionada?.razaoSocial
+const formatPercentage = (value) => {
+    const numericValue = Number(value || 0);
+    return `${numericValue > 0 ? '+' : ''}${numericValue.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    })}%`;
+};
+
+const performanceClass = (value) => {
+    if (Number(value) > 0) return 'performance-positive';
+    if (Number(value) < 0) return 'performance-negative';
+    return 'performance-neutral';
+};
+
+const getNomeCorretora = (posicao) => (
+    posicao?.corretoraRelacionada?.nomeFantasia
+    || posicao?.corretoraRelacionada?.razaoSocial
     || 'Sem corretora'
 );
 
@@ -56,24 +71,32 @@ const Dashboard = () => {
     });
     const [acoes, setAcoes] = useState([]);
     const [catalogo, setCatalogo] = useState([]);
+    const [carteira, setCarteira] = useState({ saldoEmConta: 0 });
+    const [transacoes, setTransacoes] = useState([]);
 
     useEffect(() => {
         Promise.all([
             apiFetch('/api/dashboard/stats'),
             apiFetch('/api/dashboard/acoes'),
-            apiFetch('/acoes')
+            apiFetch('/acoes'),
+            apiFetch('/carteiras/principal'),
+            apiFetch('/carteiras/principal/transacoes')
         ])
-            .then(async ([statsResponse, acoesResponse, catalogoResponse]) => {
-                if (!statsResponse.ok || !acoesResponse.ok || !catalogoResponse.ok) {
+            .then(async ([statsResponse, acoesResponse, catalogoResponse, carteiraResponse, transacoesResponse]) => {
+                if (!statsResponse.ok || !acoesResponse.ok || !catalogoResponse.ok || !carteiraResponse.ok || !transacoesResponse.ok) {
                     throw new Error('Não foi possível carregar os dados do painel.');
                 }
 
                 const statsData = await statsResponse.json();
                 const acoesData = await acoesResponse.json();
                 const catalogoData = await catalogoResponse.json();
+                const carteiraData = await carteiraResponse.json();
+                const transacoesData = await transacoesResponse.json();
                 setStats(statsData);
                 setAcoes(Array.isArray(acoesData) ? acoesData : acoesData.acoes || []);
                 setCatalogo(Array.isArray(catalogoData) ? catalogoData : []);
+                setCarteira(carteiraData || { saldoEmConta: 0 });
+                setTransacoes(Array.isArray(transacoesData) ? transacoesData : []);
             })
             .catch((error) => console.error('Erro ao buscar dados:', error));
     }, []);
@@ -85,7 +108,7 @@ const Dashboard = () => {
         .sort((a, b) => b.cotacao - a.cotacao)
         .slice(0, 6);
     const acoesPorCorretora = Array.from(
-        catalogo.reduce((agrupadas, acao) => {
+        acoes.reduce((agrupadas, acao) => {
             const nome = getNomeCorretora(acao);
             agrupadas.set(nome, (agrupadas.get(nome) || 0) + 1);
             return agrupadas;
@@ -109,9 +132,9 @@ const Dashboard = () => {
 
                 <section className="dashboard-cards">
                     <Link to="/carteiras" className="card card-featured">
-                        <span className="card-label">Valor em ações</span>
-                        <div className="stat stat-money">{formatCurrency(stats.saldoAcao)}</div>
-                        <p>Saldo consolidado da carteira.</p>
+                        <span className="card-label">Posições abertas</span>
+                        <div className="stat">{acoes.length}</div>
+                        <p>Ativos atualmente presentes na carteira.</p>
                     </Link>
 
                     <Link to="/acoes" className="card">
@@ -127,12 +150,18 @@ const Dashboard = () => {
                     </Link>
                 </section>
 
+                <PortfolioOverview
+                    positions={acoes}
+                    transactions={transacoes}
+                    saldoEmConta={carteira.saldoEmConta}
+                />
+
                 <section className="analytics-grid" aria-label="Análises do catálogo">
                     <section className="dashboard-section chart-section">
                         <div className="section-heading">
                             <div>
                                 <p className="eyebrow">Distribuição</p>
-                                <h3>Ações por corretora</h3>
+                                <h3>Posições por corretora</h3>
                             </div>
                         </div>
                         {acoesPorCorretora.length > 0 ? (
@@ -157,7 +186,7 @@ const Dashboard = () => {
                                 </ResponsiveContainer>
                             </div>
                         ) : (
-                            <div className="chart-empty">Cadastre ações para visualizar a distribuição.</div>
+                            <div className="chart-empty">Compre ações para visualizar a distribuição.</div>
                         )}
                     </section>
 
@@ -192,7 +221,7 @@ const Dashboard = () => {
                                 <p className="eyebrow">Composição</p>
                                 <h3>Posições em carteira</h3>
                             </div>
-                            <Link to="/acoes" className="text-link">Ver ações</Link>
+                            <Link to="/carteiras" className="text-link">Abrir carteira</Link>
                         </div>
 
                         {acoes.length > 0 ? (
@@ -202,13 +231,18 @@ const Dashboard = () => {
                                     const share = totalPosicoes > 0 ? Math.min((position / totalPosicoes) * 100, 100) : 0;
 
                                     return (
-                                        <Link to="/acoes" className="position-row" key={acao.posicaoId || acao.id}>
+                                        <Link to="/carteiras" className="position-row" key={acao.posicaoId || acao.id}>
                                             <span className="ticker-badge">{acao.ticker}</span>
                                             <span className="position-company">{acao.nomeEmpresa || 'Ação cadastrada'}</span>
                                             <div className="position-bar" aria-label={`${share.toFixed(1)}% da carteira`}>
                                                 <span style={{ width: `${share}%` }} />
                                             </div>
-                                            <strong>{formatCurrency(position, acao.moeda)}</strong>
+                                            <span className="position-value">
+                                                <strong>{formatCurrency(position, acao.moeda)}</strong>
+                                                <small className={performanceClass(acao.lucroPrejuizo)}>
+                                                    {formatCurrency(acao.lucroPrejuizo, acao.moeda)} ({formatPercentage(acao.rentabilidadePercentual)})
+                                                </small>
+                                            </span>
                                         </Link>
                                     );
                                 })}
@@ -216,7 +250,7 @@ const Dashboard = () => {
                         ) : (
                             <div className="empty-state dashboard-empty">
                                 <p>Nenhuma posição disponível para exibição.</p>
-                                <Link to="/acoes" className="text-link">Cadastrar ação</Link>
+                                <Link to="/carteiras" className="text-link">Comprar ação</Link>
                             </div>
                         )}
                     </section>
@@ -224,8 +258,8 @@ const Dashboard = () => {
                     <aside className="dashboard-aside">
                         <p className="eyebrow">Acesso rápido</p>
                         <h3>Gerencie sua operação</h3>
-                        <Link to="/acoes" className="quick-action"><span>Ações</span><small>Consultar e negociar</small></Link>
-                        <Link to="/carteiras" className="quick-action"><span>Carteira</span><small>Posições e aportes</small></Link>
+                        <Link to="/acoes" className="quick-action"><span>Ações</span><small>Consultar e cadastrar ativos</small></Link>
+                        <Link to="/carteiras" className="quick-action"><span>Carteira</span><small>Posições, operações e aportes</small></Link>
                         <Link to="/corretoras" className="quick-action"><span>Corretoras</span><small>Instituições cadastradas</small></Link>
                     </aside>
                 </section>

@@ -1,10 +1,8 @@
 package com.projeto.gestao.service;
 
 import com.projeto.gestao.domain.model.Acao;
-import com.projeto.gestao.domain.model.Corretora;
 import com.projeto.gestao.domain.port.CotacaoAcaoPort;
 import com.projeto.gestao.repository.AcaoRepository;
-import com.projeto.gestao.repository.CorretoraRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,9 +30,6 @@ class AcaoServiceTest {
     private AcaoRepository acaoRepository;
 
     @Mock
-    private CorretoraRepository corretoraRepository;
-
-    @Mock
     private CotacaoAcaoPort cotacaoAcaoPort;
 
     @InjectMocks
@@ -43,13 +38,11 @@ class AcaoServiceTest {
     @Test
     @DisplayName("Deve cadastrar uma acao no catalogo global")
     void deveCadastrarAcaoNoCatalogoGlobal() {
-        UUID corretoraId = UUID.randomUUID();
         when(acaoRepository.existsByTicker("PETR4")).thenReturn(false);
-        when(corretoraRepository.findById(corretoraId)).thenReturn(Optional.of(corretora(corretoraId, true)));
         when(cotacaoAcaoPort.getCotacao("PETR4", "BR")).thenReturn(cotacao("PETR4", "35.50"));
         when(acaoRepository.save(any(Acao.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Acao resultado = acaoService.cadastrarAcao("petr4", "br", corretoraId);
+        Acao resultado = acaoService.cadastrarAcao("petr4", "br");
 
         assertEquals("PETR4", resultado.getTicker());
         assertEquals("BR", resultado.getMercado());
@@ -63,26 +56,10 @@ class AcaoServiceTest {
 
         IllegalArgumentException erro = assertThrows(
                 IllegalArgumentException.class,
-                () -> acaoService.cadastrarAcao("PETR4", "BR", UUID.randomUUID())
+                () -> acaoService.cadastrarAcao("PETR4", "BR")
         );
 
         assertTrue(erro.getMessage().contains("ticker"));
-        verify(cotacaoAcaoPort, never()).getCotacao(any(), any());
-    }
-
-    @Test
-    @DisplayName("Nao deve cadastrar acao em corretora sem validacao CVM")
-    void naoDeveCadastrarAcaoComCorretoraNaoValidada() {
-        UUID corretoraId = UUID.randomUUID();
-        when(acaoRepository.existsByTicker("PETR4")).thenReturn(false);
-        when(corretoraRepository.findById(corretoraId)).thenReturn(Optional.of(corretora(corretoraId, false)));
-
-        IllegalArgumentException erro = assertThrows(
-                IllegalArgumentException.class,
-                () -> acaoService.cadastrarAcao("PETR4", "BR", corretoraId)
-        );
-
-        assertTrue(erro.getMessage().contains("validadas"));
         verify(cotacaoAcaoPort, never()).getCotacao(any(), any());
     }
 
@@ -109,13 +86,6 @@ class AcaoServiceTest {
         ));
 
         assertEquals(2, acaoService.listarTodas().size());
-    }
-
-    private Corretora corretora(UUID id, boolean validadaNaCvm) {
-        Corretora corretora = new Corretora();
-        corretora.setId(id);
-        corretora.setValidadaNaCvm(validadaNaCvm);
-        return corretora;
     }
 
     private Acao acao(UUID id, String ticker, String mercado, String cotacaoAtual) {

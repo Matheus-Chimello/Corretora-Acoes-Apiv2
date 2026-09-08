@@ -1,13 +1,29 @@
 package com.projeto.gestao.infra.client;
 
 import com.projeto.gestao.infra.client.dto.AlphaVantageResponseDto;
-import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
 
-@FeignClient(name = "alphaVantageClient", url = "https://www.alphavantage.co/query")
-public interface AlphaVantageClient {
+@Component
+public class AlphaVantageClient {
 
-    @GetMapping("?function=GLOBAL_QUOTE")
-    AlphaVantageResponseDto consultarCotacao(@RequestParam("symbol") String symbol, @RequestParam("apikey") String apikey);
+    private final RestClient restClient;
+
+    public AlphaVantageClient(RestClient.Builder restClientBuilder) {
+        this.restClient = restClientBuilder
+                .baseUrl("https://www.alphavantage.co")
+                .build();
+    }
+
+    public AlphaVantageResponseDto consultarCotacao(String function, String symbol, String apikey) {
+        return restClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/query")
+                        .queryParam("function", function)
+                        .queryParam("symbol", symbol)
+                        .queryParam("apikey", apikey)
+                        .build())
+                .retrieve()
+                .body(AlphaVantageResponseDto.class);
+    }
 }

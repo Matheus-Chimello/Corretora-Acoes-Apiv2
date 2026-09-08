@@ -17,7 +17,7 @@ import java.util.UUID;
 @Entity
 @Table(
         name = "posicoes_carteira",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"carteira_id", "acao_id"})
+        uniqueConstraints = @UniqueConstraint(columnNames = {"carteira_id", "acao_id", "corretora_id"})
 )
 public class PosicaoCarteira {
 
@@ -34,6 +34,10 @@ public class PosicaoCarteira {
     @JoinColumn(name = "acao_id", nullable = false)
     private Acao acao;
 
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "corretora_id", nullable = false)
+    private Corretora corretora;
+
     @Column(nullable = false)
     private BigDecimal quantidadeTotal = BigDecimal.ZERO;
 
@@ -48,6 +52,9 @@ public class PosicaoCarteira {
 
     public Acao getAcao() { return acao; }
     public void setAcao(Acao acao) { this.acao = acao; }
+
+    public Corretora getCorretora() { return corretora; }
+    public void setCorretora(Corretora corretora) { this.corretora = corretora; }
 
     public BigDecimal getQuantidadeTotal() { return quantidadeTotal; }
     public void setQuantidadeTotal(BigDecimal quantidadeTotal) {

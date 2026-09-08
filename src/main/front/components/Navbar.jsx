@@ -1,10 +1,21 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { getCurrentUser, logout } from '../services/auth';
 
 const Navbar = ({ title }) => {
     const navigate = useNavigate();
     const currentUser = getCurrentUser();
+    const [sidebarRecolhida, setSidebarRecolhida] = useState(
+        () => window.localStorage.getItem('sidebar-recolhida') === 'true'
+    );
+
+    useEffect(() => {
+        document.body.classList.toggle('sidebar-is-collapsed', sidebarRecolhida);
+        window.localStorage.setItem('sidebar-recolhida', String(sidebarRecolhida));
+
+        return () => document.body.classList.remove('sidebar-is-collapsed');
+    }, [sidebarRecolhida]);
 
     const handleLogout = () => {
         logout();
@@ -14,7 +25,17 @@ const Navbar = ({ title }) => {
     const displayName = currentUser?.name || currentUser?.nome || currentUser?.email?.split('@')[0] || 'Perfil';
 
     return (
-        <header className="header">
+        <header className={`header${sidebarRecolhida ? ' sidebar-collapsed' : ''}`}>
+            <button
+                type="button"
+                className="sidebar-toggle"
+                onClick={() => setSidebarRecolhida((recolhida) => !recolhida)}
+                aria-expanded={!sidebarRecolhida}
+                aria-label={sidebarRecolhida ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+                title={sidebarRecolhida ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+            >
+                {sidebarRecolhida ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}
+            </button>
             <div className="header-brand">
                 <NavLink to="/" end className="brand" aria-label="Ir para a visão geral">
                     <span className="brand-mark" aria-hidden="true">CA</span>

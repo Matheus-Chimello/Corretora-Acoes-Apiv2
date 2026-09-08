@@ -8,7 +8,8 @@
     { "key": "adminToken", "value": "" },
     { "key": "investorToken", "value": "" },
     { "key": "corretoraId", "value": "" },
-    { "key": "acaoId", "value": "" }
+    { "key": "acaoId", "value": "" },
+    { "key": "posicaoId", "value": "" }
   ],
   "auth": {
     "type": "bearer",
@@ -78,7 +79,7 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"ticker\": \"PETR4\",\n  \"mercado\": \"BR\",\n  \"corretoraId\": \"{{corretoraId}}\"\n}", "options": { "raw": { "language": "json" } } },
+            "body": { "mode": "raw", "raw": "{\n  \"ticker\": \"PETR4\",\n  \"mercado\": \"BR\"\n}", "options": { "raw": { "language": "json" } } },
             "url": "{{baseUrl}}/acoes"
           },
           "event": [{ "listen": "test", "script": { "exec": ["pm.collectionVariables.set('acaoId', pm.response.json().id);"] } }]
@@ -86,35 +87,7 @@
         { "name": "Listar acoes", "request": { "method": "GET", "url": "{{baseUrl}}/acoes" } },
         { "name": "Buscar acao por ID", "request": { "method": "GET", "url": "{{baseUrl}}/acoes/{{acaoId}}" } },
         { "name": "Buscar acao por ticker", "request": { "method": "GET", "url": "{{baseUrl}}/acoes/ticker/PETR4" } },
-        { "name": "Atualizar cotacao", "request": { "method": "PUT", "url": "{{baseUrl}}/acoes/{{acaoId}}/atualizar-cotacao" } },
-        {
-          "name": "Minhas posicoes",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{investorToken}}", "type": "string" }] },
-            "method": "GET",
-            "url": "{{baseUrl}}/acoes/minhas"
-          }
-        },
-        {
-          "name": "Comprar para minha carteira",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{investorToken}}", "type": "string" }] },
-            "method": "PUT",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"quantidade\": 2\n}", "options": { "raw": { "language": "json" } } },
-            "url": "{{baseUrl}}/acoes/{{acaoId}}"
-          }
-        },
-        {
-          "name": "Vender da minha carteira",
-          "request": {
-            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{investorToken}}", "type": "string" }] },
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"quantidade\": 1\n}", "options": { "raw": { "language": "json" } } },
-            "url": "{{baseUrl}}/acoes/PETR4"
-          }
-        }
+        { "name": "Atualizar cotacao", "request": { "method": "PUT", "url": "{{baseUrl}}/acoes/{{acaoId}}/atualizar-cotacao" } }
       ]
     },
     {
@@ -128,6 +101,43 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": { "mode": "raw", "raw": "{\n  \"valor\": 1000\n}", "options": { "raw": { "language": "json" } } },
             "url": "{{baseUrl}}/carteiras/principal/aportes"
+          }
+        },
+        {
+          "name": "Comprar acao com corretora",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{investorToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"corretoraId\": \"{{corretoraId}}\",\n  \"quantidade\": 2\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/carteiras/principal/acoes/{{acaoId}}/compras"
+          },
+          "event": [{ "listen": "test", "script": { "exec": ["pm.collectionVariables.set('posicaoId', pm.response.json().posicaoId);"] } }]
+        },
+        {
+          "name": "Listar minhas posicoes",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{investorToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/carteiras/principal/posicoes"
+          }
+        },
+        {
+          "name": "Vender da minha carteira",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{investorToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"quantidade\": 1,\n  \"valorUnitario\": 12.50\n}", "options": { "raw": { "language": "json" } } },
+            "url": "{{baseUrl}}/carteiras/principal/posicoes/{{posicaoId}}/vendas"
+          }
+        },
+        {
+          "name": "Historico de transacoes",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{investorToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/carteiras/principal/transacoes"
           }
         }
       ]

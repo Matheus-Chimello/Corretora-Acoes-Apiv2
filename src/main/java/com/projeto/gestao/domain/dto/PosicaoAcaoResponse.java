@@ -4,6 +4,7 @@ import com.projeto.gestao.domain.model.Acao;
 import com.projeto.gestao.domain.model.PosicaoCarteira;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -18,12 +19,23 @@ public record PosicaoAcaoResponse(
         BigDecimal cotacaoAtual,
         BigDecimal precoMedio,
         BigDecimal posicao,
+        BigDecimal valorInvestido,
+        BigDecimal lucroPrejuizo,
+        BigDecimal rentabilidadePercentual,
         LocalDateTime dataHoraCotacao,
         AcaoResponse.CorretoraResumo corretoraRelacionada
 ) {
     public static PosicaoAcaoResponse from(PosicaoCarteira posicao) {
         Acao acao = posicao.getAcao();
         BigDecimal cotacao = acao.getCotacaoAtual() == null ? BigDecimal.ZERO : acao.getCotacaoAtual();
+        BigDecimal quantidade = posicao.getQuantidadeTotal() == null ? BigDecimal.ZERO : posicao.getQuantidadeTotal();
+        BigDecimal precoMedio = posicao.getPrecoMedio() == null ? BigDecimal.ZERO : posicao.getPrecoMedio();
+        BigDecimal valorAtual = quantidade.multiply(cotacao);
+        BigDecimal valorInvestido = quantidade.multiply(precoMedio);
+        BigDecimal lucroPrejuizo = valorAtual.subtract(valorInvestido);
+        BigDecimal rentabilidadePercentual = valorInvestido.signum() == 0
+                ? BigDecimal.ZERO
+                : lucroPrejuizo.multiply(BigDecimal.valueOf(100)).divide(valorInvestido, 2, RoundingMode.HALF_UP);
         return new PosicaoAcaoResponse(
                 acao.getId(),
                 posicao.getId(),
@@ -31,12 +43,15 @@ public record PosicaoAcaoResponse(
                 acao.getNomeEmpresa(),
                 acao.getMercado(),
                 acao.getMoeda(),
-                posicao.getQuantidadeTotal(),
+                quantidade,
                 cotacao,
-                posicao.getPrecoMedio(),
-                posicao.getQuantidadeTotal().multiply(cotacao),
+                precoMedio,
+                valorAtual,
+                valorInvestido,
+                lucroPrejuizo,
+                rentabilidadePercentual,
                 acao.getDataHoraCotacao(),
-                AcaoResponse.corretoraResumo(acao.getCorretoraRelacionada())
+                AcaoResponse.corretoraResumo(posicao.getCorretora())
         );
     }
 }

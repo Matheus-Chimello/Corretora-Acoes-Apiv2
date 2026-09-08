@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { apiFetch } from '../services/api';
+import { correspondeAoFiltro, opcoesUnicas } from '../services/filtros';
 
 const Corretoras = () => {
     // Estados para a tabela de corretoras
     const [corretoras, setCorretoras] = useState([]);
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+    const [filtrosTabela, setFiltrosTabela] = useState({
+        cnpj: '',
+        razaoSocial: '',
+        telefone: '',
+        cidadeUf: '',
+        validacao: ''
+    });
 
     // 1. NOVOS ESTADOS: Para o formulário de adicionar CNPJ
     const [cnpjInput, setCnpjInput] = useState('');
@@ -92,6 +100,24 @@ const Corretoras = () => {
         setSortConfig({ key: coluna, direction: direcao });
     };
 
+    const atualizarFiltroTabela = (campo, valor) => {
+        setFiltrosTabela((filtrosAtuais) => ({ ...filtrosAtuais, [campo]: valor }));
+    };
+
+    const corretorasFiltradas = corretoras.filter((corretora) => (
+        correspondeAoFiltro(filtrosTabela.cnpj, [corretora.cnpj])
+        && correspondeAoFiltro(filtrosTabela.razaoSocial, [corretora.razaoSocial, corretora.nomeFantasia])
+        && correspondeAoFiltro(filtrosTabela.telefone, [corretora.telefone])
+        && correspondeAoFiltro(filtrosTabela.cidadeUf, [corretora.cidade, corretora.uf, `${corretora.cidade || ''}/${corretora.uf || ''}`])
+        && (!filtrosTabela.validacao || String(Boolean(corretora.validadaNaCvm)) === filtrosTabela.validacao)
+    ));
+    const opcoesCnpj = opcoesUnicas(corretoras.map((corretora) => corretora.cnpj));
+    const opcoesRazaoSocial = opcoesUnicas(corretoras.map((corretora) => corretora.razaoSocial));
+    const opcoesTelefone = opcoesUnicas(corretoras.map((corretora) => corretora.telefone));
+    const opcoesCidadeUf = opcoesUnicas(corretoras
+        .filter((corretora) => corretora.cidade || corretora.uf)
+        .map((corretora) => `${corretora.cidade || ''}/${corretora.uf || ''}`));
+
     return (
         <div className="container">
             <Navbar title="Corretoras" />
@@ -133,11 +159,35 @@ const Corretoras = () => {
                         <p className="eyebrow">Instituições</p>
                         <h3>Corretoras cadastradas</h3>
                     </div>
-                    <span className="table-count">{corretoras.length} {corretoras.length === 1 ? 'corretora' : 'corretoras'}</span>
+                    <span className="table-count">{corretorasFiltradas.length} de {corretoras.length}</span>
                 </div>
 
                 {corretoras.length > 0 ? (
-                    <table id="minhaTabela">
+                    <>
+                    <div className="table-filter-bar" role="group" aria-label="Filtros de corretoras">
+                        <select value={filtrosTabela.cnpj} onChange={(event) => atualizarFiltroTabela('cnpj', event.target.value)} aria-label="Filtrar CNPJ" className="column-filter">
+                            <option value="">Todos os CNPJs</option>
+                            {opcoesCnpj.map((cnpj) => <option key={cnpj} value={cnpj}>{cnpj}</option>)}
+                        </select>
+                        <select value={filtrosTabela.razaoSocial} onChange={(event) => atualizarFiltroTabela('razaoSocial', event.target.value)} aria-label="Filtrar razão social" className="column-filter">
+                            <option value="">Todas as corretoras</option>
+                            {opcoesRazaoSocial.map((razaoSocial) => <option key={razaoSocial} value={razaoSocial}>{razaoSocial}</option>)}
+                        </select>
+                        <select value={filtrosTabela.telefone} onChange={(event) => atualizarFiltroTabela('telefone', event.target.value)} aria-label="Filtrar telefone" className="column-filter">
+                            <option value="">Todos os telefones</option>
+                            {opcoesTelefone.map((telefone) => <option key={telefone} value={telefone}>{telefone}</option>)}
+                        </select>
+                        <select value={filtrosTabela.cidadeUf} onChange={(event) => atualizarFiltroTabela('cidadeUf', event.target.value)} aria-label="Filtrar cidade ou UF" className="column-filter">
+                            <option value="">Todas as cidades/UF</option>
+                            {opcoesCidadeUf.map((cidadeUf) => <option key={cidadeUf} value={cidadeUf}>{cidadeUf}</option>)}
+                        </select>
+                        <select value={filtrosTabela.validacao} onChange={(event) => atualizarFiltroTabela('validacao', event.target.value)} aria-label="Filtrar validação CVM" className="column-filter">
+                            <option value="">Todas as validações</option>
+                            <option value="true">Validadas</option>
+                            <option value="false">Não CVM</option>
+                        </select>
+                    </div>
+                    <table id="minhaTabela" className="brokers-table">
                         <thead>
                         <tr>
                             <th onClick={() => ordenar('cnpj')} className="topCollumn">CNPJ</th>
@@ -148,7 +198,7 @@ const Corretoras = () => {
                         </tr>
                         </thead>
                         <tbody>
-                        {corretoras.map((corretora, index) => (
+                        {corretorasFiltradas.map((corretora, index) => (
                             <tr key={index}>
                                 <td>{corretora.cnpj}</td>
                                 <td>{corretora.razaoSocial}</td>
@@ -163,8 +213,12 @@ const Corretoras = () => {
                                 </td>
                             </tr>
                         ))}
+                        {corretorasFiltradas.length === 0 && (
+                            <tr><td colSpan="5" className="table-empty">Nenhuma corretora encontrada.</td></tr>
+                        )}
                         </tbody>
                     </table>
+                    </>
                 ) : (
                     <div className="empty-state">
                         <p>Nenhuma corretora cadastrada no momento.</p>

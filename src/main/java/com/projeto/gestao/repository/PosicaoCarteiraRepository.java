@@ -11,6 +11,6 @@ import java.util.UUID;
 @Repository
 public interface PosicaoCarteiraRepository extends JpaRepository<PosicaoCarteira, UUID> {
     List<PosicaoCarteira> findAllByCarteiraId(Long carteiraId);
-    Optional<PosicaoCarteira> findByCarteiraIdAndAcaoId(Long carteiraId, UUID acaoId);
-    Optional<PosicaoCarteira> findByCarteiraIdAndAcaoTickerIgnoreCase(Long carteiraId, String ticker);
+    Optional<PosicaoCarteira> findByCarteiraIdAndAcaoIdAndCorretoraId(Long carteiraId, UUID acaoId, UUID corretoraId);
+    Optional<PosicaoCarteira> findByIdAndCarteiraId(UUID id, Long carteiraId);
 }

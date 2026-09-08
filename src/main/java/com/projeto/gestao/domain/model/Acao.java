@@ -5,8 +5,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
@@ -32,10 +30,6 @@ public class Acao {
     private BigDecimal cotacaoAtual;
     private LocalDateTime dataHoraCotacao;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "corretora_id", nullable = false)
-    private Corretora corretoraRelacionada;
-
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
@@ -56,9 +50,6 @@ public class Acao {
 
     public LocalDateTime getDataHoraCotacao() { return dataHoraCotacao; }
     public void setDataHoraCotacao(LocalDateTime dataHoraCotacao) { this.dataHoraCotacao = dataHoraCotacao; }
-
-    public Corretora getCorretoraRelacionada() { return corretoraRelacionada; }
-    public void setCorretoraRelacionada(Corretora corretoraRelacionada) { this.corretoraRelacionada = corretoraRelacionada; }
 
     @Override
     public boolean equals(Object outro) {
