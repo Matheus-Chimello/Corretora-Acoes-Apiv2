@@ -78,6 +78,25 @@ class AcaoServiceTest {
     }
 
     @Test
+    @DisplayName("Deve atualizar as cotacoes de todos os ativos do catalogo")
+    void deveAtualizarCotacoesDoCatalogo() {
+        Acao petr4 = acao(UUID.randomUUID(), "PETR4", "BR", "35.00");
+        Acao aapl = acao(UUID.randomUUID(), "AAPL", "US", "180.00");
+        when(acaoRepository.findAll()).thenReturn(List.of(petr4, aapl));
+        when(cotacaoAcaoPort.getCotacao("PETR4", "BR")).thenReturn(cotacao("PETR4", "36.00"));
+        when(cotacaoAcaoPort.getCotacao("AAPL", "US")).thenReturn(cotacao("AAPL", "190.00"));
+        when(acaoRepository.save(any(Acao.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<Acao> resultado = acaoService.atualizarCotacoesDoCatalogo();
+
+        assertEquals(2, resultado.size());
+        assertEquals(0, new BigDecimal("36.00").compareTo(petr4.getCotacaoAtual()));
+        assertEquals(0, new BigDecimal("190.00").compareTo(aapl.getCotacaoAtual()));
+        verify(cotacaoAcaoPort).getCotacao("PETR4", "BR");
+        verify(cotacaoAcaoPort).getCotacao("AAPL", "US");
+    }
+
+    @Test
     @DisplayName("Deve listar todos os ativos do catalogo")
     void deveListarTodosAtivosDoCatalogo() {
         when(acaoRepository.findAll()).thenReturn(List.of(

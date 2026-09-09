@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="012-remover-unicidade-legada-posicoes" author="matheus" dbms="postgresql">
+        <comment>Remove a restricao legada que impedia a mesma acao em corretoras diferentes.</comment>
+        <sql splitStatements="false">
+            DO $$
+            DECLARE
+                nome_restricao TEXT;
+            BEGIN
+                FOR nome_restricao IN
+                    SELECT con.conname
+                    FROM pg_constraint con
+                    WHERE con.conrelid = 'posicoes_carteira'::regclass
+                      AND con.contype = 'u'
+                      AND pg_get_constraintdef(con.oid) = 'UNIQUE (carteira_id, acao_id)'
+                LOOP
+                    EXECUTE format('ALTER TABLE posicoes_carteira DROP CONSTRAINT %I', nome_restricao);
+                END LOOP;
+            END $$;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

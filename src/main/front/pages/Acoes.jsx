@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import { apiFetch } from '../services/api';
 import { correspondeAoFiltro, opcoesUnicas } from '../services/filtros';
+import { notifyMarketTickerUpdate } from '../services/marketTicker';
 
 const formatCurrency = (value, currency = 'BRL') => Number(value || 0).toLocaleString('pt-BR', {
     style: 'currency',
@@ -25,6 +27,7 @@ const Acoes = () => {
     const [catalogo, setCatalogo] = useState([]);
     const [cadastro, setCadastro] = useState({ ticker: '', mercado: 'BR' });
     const [mensagem, setMensagem] = useState({ tipo: '', texto: '' });
+    const [atualizandoCotacoes, setAtualizandoCotacoes] = useState(false);
     const [filtrosTabela, setFiltrosTabela] = useState({
         ticker: '',
         empresa: '',
@@ -64,9 +67,35 @@ const Acoes = () => {
 
             setCadastro({ ticker: '', mercado: 'BR' });
             setMensagem({ tipo: 'success', texto: 'Ativo cadastrado no catálogo com sucesso.' });
+            notifyMarketTickerUpdate();
             carregarDados();
         } catch (error) {
             setMensagem({ tipo: 'error', texto: error.message });
+        }
+    };
+
+    const atualizarCotacoes = async () => {
+        if (catalogo.length === 0) return;
+
+        setMensagem({ tipo: '', texto: '' });
+        setAtualizandoCotacoes(true);
+        try {
+            const response = await apiFetch('/acoes/atualizar-cotacoes', { method: 'PUT' });
+            if (!response.ok) {
+                throw new Error(await getErrorMessage(response, 'Não foi possível atualizar as cotações do catálogo.'));
+            }
+
+            const acoesAtualizadas = await response.json();
+            await carregarDados();
+            notifyMarketTickerUpdate();
+            setMensagem({
+                tipo: 'success',
+                texto: `${acoesAtualizadas.length} ${acoesAtualizadas.length === 1 ? 'cotação atualizada' : 'cotações atualizadas'} no catálogo.`
+            });
+        } catch (error) {
+            setMensagem({ tipo: 'error', texto: error.message });
+        } finally {
+            setAtualizandoCotacoes(false);
         }
     };
 
@@ -138,7 +167,18 @@ const Acoes = () => {
                             <p className="eyebrow">Catálogo</p>
                             <h3>Ativos disponíveis</h3>
                         </div>
-                        <span className="table-count">{catalogoFiltrado.length} de {catalogo.length}</span>
+                        <div className="table-heading-actions">
+                            <button
+                                type="button"
+                                className="btn btn-secondary btn-small quote-refresh-button"
+                                onClick={atualizarCotacoes}
+                                disabled={atualizandoCotacoes || catalogo.length === 0}
+                            >
+                                <RefreshCw size={16} aria-hidden="true" className={atualizandoCotacoes ? 'is-spinning' : ''} />
+                                <span>{atualizandoCotacoes ? 'Atualizando...' : 'Atualizar cotações'}</span>
+                            </button>
+                            <span className="table-count">{catalogoFiltrado.length} de {catalogo.length}</span>
+                        </div>
                     </div>
                     {catalogo.length > 0 ? (
                         <>

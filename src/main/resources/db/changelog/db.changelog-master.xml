@@ -13,5 +13,9 @@
              relativeToChangelogFile="true"/>
     <include file="changes/004-registrar-aportes-na-carteira.xml"
              relativeToChangelogFile="true"/>
+    <include file="changes/005-remover-unicidade-legada-posicoes.xml"
+             relativeToChangelogFile="true"/>
+    <include file="changes/006-ampliar-tipo-transacao.xml"
+             relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

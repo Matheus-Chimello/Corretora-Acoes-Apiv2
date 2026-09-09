@@ -203,6 +203,8 @@ th { background: rgba(255, 255, 255, 0.02); color: var(--text-secondary); font-s
     white-space: nowrap;
 }
 
+.table-row-actions { display: grid; gap: 0.4rem; min-width: 84px; }
+
 .transaction-badge {
     display: inline-flex;
     align-items: center;
@@ -230,6 +232,13 @@ th { background: rgba(255, 255, 255, 0.02); color: var(--text-secondary); font-s
     color: #8a5a00;
     background: #fff7df;
     border: 1px solid #edcf83;
+}
+
+.transaction-transferencia_saida,
+.transaction-transferencia_entrada {
+    color: #285f9c;
+    background: #eef5ff;
+    border: 1px solid #bdd5f2;
 }
 
 .btn-secondary {
@@ -512,6 +521,7 @@ body {
 .market-ticker__change { font-size: 0.82rem; font-variant-numeric: tabular-nums; font-weight: 800; }
 .market-ticker__change.up { color: #5de0ba; }
 .market-ticker__change.down { color: #ff7090; }
+.market-ticker__change.neutral { color: #aebbc1; }
 
 @keyframes ticker-scroll {
     from { transform: translateX(0); }
@@ -1075,15 +1085,15 @@ body.sidebar-is-collapsed .sidebar-toggle:hover {
 .brokers-table th:nth-child(5) { width: 15%; }
 
 .positions-table th:nth-child(1) { width: 7%; }
-.positions-table th:nth-child(2) { width: 17%; }
-.positions-table th:nth-child(3) { width: 16%; }
+.positions-table th:nth-child(2) { width: 14%; }
+.positions-table th:nth-child(3) { width: 14%; }
 .positions-table th:nth-child(4) { width: 7%; }
 .positions-table th:nth-child(5) { width: 8%; }
 .positions-table th:nth-child(6) { width: 10%; }
 .positions-table th:nth-child(7) { width: 10%; }
 .positions-table th:nth-child(8) { width: 9%; }
 .positions-table th:nth-child(9) { width: 9%; }
-.positions-table th:nth-child(10) { width: 7%; }
+.positions-table th:nth-child(10) { width: 12%; }
 
 .transactions-table th:nth-child(1) { width: 10%; }
 .transactions-table th:nth-child(2) { width: 10%; }
@@ -1121,10 +1131,21 @@ body.sidebar-is-collapsed .sidebar-toggle:hover {
 }
 
 .positions-table .btn-table {
+    box-sizing: border-box;
     width: 100%;
     padding-right: 0.35rem;
     padding-left: 0.35rem;
     font-size: 0.75rem;
+}
+
+.positions-table th:nth-child(10),
+.positions-table td:nth-child(10) {
+    min-width: 116px;
+}
+
+.positions-table .table-row-actions {
+    width: 100%;
+    min-width: 0;
 }
 
 .table-empty {

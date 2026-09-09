@@ -4,6 +4,7 @@ import Navbar from '../components/Navbar';
 import { apiFetch } from '../services/api';
 import { getNomeCorretora } from '../services/corretoras';
 import { correspondeAoFiltro, opcoesUnicas } from '../services/filtros';
+import { notifyMarketTickerUpdate } from '../services/marketTicker';
 
 const formatCurrency = (value, currency = 'BRL') => Number(value || 0).toLocaleString('pt-BR', {
     style: 'currency',
@@ -32,6 +33,10 @@ const performanceClass = (value) => {
     return 'performance-neutral';
 };
 
+const isBrazilianMarket = (mercado) => mercado === 'BR';
+
+const hasFractionalQuantity = (quantidade) => !Number.isInteger(Number(quantidade));
+
 const getErrorMessage = async (response, fallback) => {
     const data = await response.json().catch(() => ({}));
     return data.message || fallback;
@@ -44,12 +49,14 @@ const Carteiras = () => {
     const [corretoras, setCorretoras] = useState([]);
     const [transacoes, setTransacoes] = useState([]);
     const [aporte, setAporte] = useState('');
-    const [compra, setCompra] = useState({ acaoId: '', corretoraId: '', quantidade: '1' });
+    const [compra, setCompra] = useState({ acaoId: '', corretoraId: '', quantidade: '1', valorUnitario: '' });
     const [venda, setVenda] = useState({ posicaoId: '', quantidade: '', valorUnitario: '' });
+    const [transferencia, setTransferencia] = useState({ posicaoId: '', corretoraDestinoId: '', quantidade: '' });
     const [mensagem, setMensagem] = useState({ tipo: '', texto: '' });
     const [isLoading, setIsLoading] = useState(false);
     const [atualizandoCotacoes, setAtualizandoCotacoes] = useState(false);
     const [vendaAberta, setVendaAberta] = useState(false);
+    const [transferenciaAberta, setTransferenciaAberta] = useState(false);
     const [filtrosPosicoes, setFiltrosPosicoes] = useState({
         ticker: '',
         empresa: '',
@@ -133,21 +140,46 @@ const Carteiras = () => {
             if (!compra.acaoId || !compra.corretoraId || Number(compra.quantidade) <= 0) {
                 throw new Error('Selecione uma ação, uma corretora e informe uma quantidade válida.');
             }
+            const acaoSelecionada = catalogo.find((acao) => acao.id === compra.acaoId);
+            if (isBrazilianMarket(acaoSelecionada?.mercado) && hasFractionalQuantity(compra.quantidade)) {
+                throw new Error('Ações brasileiras permitem somente quantidade inteira.');
+            }
+            if (compra.valorUnitario && Number(compra.valorUnitario) <= 0) {
+                throw new Error('Informe um valor unitário maior que zero ou deixe o campo em branco.');
+            }
             const response = await apiFetch(`/carteiras/principal/acoes/${compra.acaoId}/compras`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ corretoraId: compra.corretoraId, quantidade: compra.quantidade })
+                body: JSON.stringify({
+                    corretoraId: compra.corretoraId,
+                    quantidade: compra.quantidade,
+                    valorUnitario: compra.valorUnitario || undefined
+                })
             });
             if (!response.ok) {
                 throw new Error(await getErrorMessage(response, 'Não foi possível concluir a compra.'));
             }
 
-            setCompra({ acaoId: '', corretoraId: '', quantidade: '1' });
+            setCompra({ acaoId: '', corretoraId: '', quantidade: '1', valorUnitario: '' });
             setMensagem({ tipo: 'success', texto: 'Compra registrada na carteira.' });
             carregarDados();
+            notifyMarketTickerUpdate();
         } catch (error) {
             setMensagem({ tipo: 'error', texto: error.message });
         }
+    };
+
+    const selecionarAcaoParaCompra = (acaoId) => {
+        const acaoSelecionada = catalogo.find((acao) => acao.id === acaoId);
+        const quantidade = isBrazilianMarket(acaoSelecionada?.mercado) && hasFractionalQuantity(compra.quantidade)
+            ? '1'
+            : compra.quantidade;
+        setCompra({
+            ...compra,
+            acaoId,
+            quantidade,
+            valorUnitario: acaoSelecionada?.cotacaoAtual ? String(acaoSelecionada.cotacaoAtual) : ''
+        });
     };
 
     const abrirVenda = (posicao) => {
@@ -159,6 +191,15 @@ const Carteiras = () => {
         setVendaAberta(true);
     };
 
+    const abrirTransferencia = (posicao) => {
+        setTransferencia({
+            posicaoId: posicao.posicaoId,
+            corretoraDestinoId: '',
+            quantidade: String(posicao.quantidadeTotal)
+        });
+        setTransferenciaAberta(true);
+    };
+
     const venderAcao = async (event) => {
         event.preventDefault();
         const posicao = posicoes.find((item) => item.posicaoId === venda.posicaoId);
@@ -166,6 +207,9 @@ const Carteiras = () => {
         try {
             if (!posicao || Number(venda.quantidade) <= 0 || Number(venda.valorUnitario) <= 0) {
                 throw new Error('Informe uma quantidade e um valor unitário de venda válidos.');
+            }
+            if (isBrazilianMarket(posicao.mercado) && hasFractionalQuantity(venda.quantidade)) {
+                throw new Error('Ações brasileiras permitem somente quantidade inteira.');
             }
             if (Number(venda.quantidade) > Number(posicao.quantidadeTotal)) {
                 throw new Error('A quantidade informada é maior que a disponível na sua carteira.');
@@ -189,6 +233,42 @@ const Carteiras = () => {
         }
     };
 
+    const transferirAcao = async (event) => {
+        event.preventDefault();
+        const posicao = posicoes.find((item) => item.posicaoId === transferencia.posicaoId);
+
+        try {
+            if (!posicao || !transferencia.corretoraDestinoId || Number(transferencia.quantidade) <= 0) {
+                throw new Error('Selecione a corretora de destino e informe uma quantidade válida.');
+            }
+            if (transferencia.corretoraDestinoId === posicao.corretoraRelacionada?.id) {
+                throw new Error('Selecione uma corretora de destino diferente da origem.');
+            }
+            if (Number(transferencia.quantidade) > Number(posicao.quantidadeTotal)) {
+                throw new Error('A quantidade informada é maior que a disponível na sua carteira.');
+            }
+
+            const response = await apiFetch(`/carteiras/principal/posicoes/${transferencia.posicaoId}/transferencias`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    corretoraDestinoId: transferencia.corretoraDestinoId,
+                    quantidade: transferencia.quantidade
+                })
+            });
+            if (!response.ok) {
+                throw new Error(await getErrorMessage(response, 'Não foi possível transferir a ação.'));
+            }
+
+            setTransferencia({ posicaoId: '', corretoraDestinoId: '', quantidade: '' });
+            setTransferenciaAberta(false);
+            setMensagem({ tipo: 'success', texto: 'Transferência registrada entre as corretoras.' });
+            carregarDados();
+        } catch (error) {
+            setMensagem({ tipo: 'error', texto: error.message });
+        }
+    };
+
     const atualizarCotacoes = async () => {
         if (posicoes.length === 0) return;
 
@@ -202,6 +282,7 @@ const Carteiras = () => {
 
             const posicoesAtualizadas = await response.json();
             const dadosCarregados = await carregarDados();
+            notifyMarketTickerUpdate();
             if (dadosCarregados) {
                 setMensagem({
                     tipo: 'success',
@@ -216,6 +297,11 @@ const Carteiras = () => {
     };
 
     const posicaoEmVenda = posicoes.find((item) => item.posicaoId === venda.posicaoId);
+    const posicaoEmTransferencia = posicoes.find((item) => item.posicaoId === transferencia.posicaoId);
+    const acaoEmCompra = catalogo.find((acao) => acao.id === compra.acaoId);
+    const valorUnitarioCompra = compra.valorUnitario || acaoEmCompra?.cotacaoAtual || 0;
+    const totalCompra = Number(compra.quantidade || 0) * Number(valorUnitarioCompra || 0);
+    const totalVenda = Number(venda.quantidade || 0) * Number(venda.valorUnitario || 0);
     const atualizarFiltroPosicoes = (campo, valor) => {
         setFiltrosPosicoes((filtrosAtuais) => ({ ...filtrosAtuais, [campo]: valor }));
     };
@@ -298,7 +384,7 @@ const Carteiras = () => {
                             <label>Ativo</label>
                             <select
                                 value={compra.acaoId}
-                                onChange={(event) => setCompra({ ...compra, acaoId: event.target.value })}
+                                onChange={(event) => selecionarAcaoParaCompra(event.target.value)}
                                 className="form-input"
                                 disabled={isLoading}
                             >
@@ -330,10 +416,31 @@ const Carteiras = () => {
                                 type="number"
                                 value={compra.quantidade}
                                 onChange={(event) => setCompra({ ...compra, quantidade: event.target.value })}
+                                min={isBrazilianMarket(acaoEmCompra?.mercado) ? '1' : '0.01'}
+                                step={isBrazilianMarket(acaoEmCompra?.mercado) ? '1' : '0.01'}
+                                className="form-input"
+                                disabled={isLoading}
+                            />
+                        </div>
+                        <div className="field-group">
+                            <label>Valor unitário (opcional)</label>
+                            <input
+                                type="number"
+                                value={compra.valorUnitario}
+                                onChange={(event) => setCompra({ ...compra, valorUnitario: event.target.value })}
                                 min="0.01"
                                 step="0.01"
                                 className="form-input"
                                 disabled={isLoading}
+                            />
+                        </div>
+                        <div className="field-group">
+                            <label>Valor total</label>
+                            <input
+                                type="text"
+                                value={formatCurrency(totalCompra, acaoEmCompra?.moeda)}
+                                className="form-input"
+                                readOnly
                             />
                         </div>
                         <div className="form-actions">
@@ -420,7 +527,12 @@ const Carteiras = () => {
                                         <strong>{formatCurrency(acao.lucroPrejuizo, acao.moeda)}</strong>
                                         <small>{formatPercentage(acao.rentabilidadePercentual)}</small>
                                     </td>
-                                    <td><button type="button" className="btn btn-danger btn-table" onClick={() => abrirVenda(acao)}>Vender</button></td>
+                                    <td>
+                                        <div className="table-row-actions">
+                                            <button type="button" className="btn btn-secondary btn-table" onClick={() => abrirTransferencia(acao)}>Transferir</button>
+                                            <button type="button" className="btn btn-danger btn-table" onClick={() => abrirVenda(acao)}>Vender</button>
+                                        </div>
+                                    </td>
                                 </tr>
                             ))}
                             {posicoesFiltradas.length === 0 && (
@@ -448,6 +560,8 @@ const Carteiras = () => {
                                 <option value="APORTE">Aporte</option>
                                 <option value="COMPRA">Compra</option>
                                 <option value="VENDA">Venda</option>
+                                <option value="TRANSFERENCIA_SAIDA">Transferência enviada</option>
+                                <option value="TRANSFERENCIA_ENTRADA">Transferência recebida</option>
                             </select>
                             <select value={filtrosTransacoes.ativo} onChange={(event) => atualizarFiltroTransacoes('ativo', event.target.value)} aria-label="Filtrar ativo" className="column-filter">
                                 <option value="">Todos os ativos</option>
@@ -521,9 +635,9 @@ const Carteiras = () => {
                                         type="number"
                                         value={venda.quantidade}
                                         onChange={(event) => setVenda({ ...venda, quantidade: event.target.value })}
-                                        min="0.01"
+                                        min={isBrazilianMarket(posicaoEmVenda.mercado) ? '1' : '0.01'}
                                         max={posicaoEmVenda.quantidadeTotal}
-                                        step="0.01"
+                                        step={isBrazilianMarket(posicaoEmVenda.mercado) ? '1' : '0.01'}
                                         className="form-input"
                                     />
                                 </div>
@@ -538,9 +652,71 @@ const Carteiras = () => {
                                         className="form-input"
                                     />
                                 </div>
+                                <div className="field-group">
+                                    <label>Valor total</label>
+                                    <input
+                                        type="text"
+                                        value={formatCurrency(totalVenda, posicaoEmVenda.moeda)}
+                                        className="form-input"
+                                        readOnly
+                                    />
+                                </div>
                                 <div className="modal-actions">
                                     <button type="button" onClick={() => setVendaAberta(false)} className="btn btn-secondary">Cancelar</button>
                                     <button type="submit" className="btn btn-danger">Confirmar venda</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {transferenciaAberta && posicaoEmTransferencia && (
+                    <div className="modal-overlay">
+                        <div className="modal-panel">
+                            <div className="modal-header">
+                                <h3>Transferir Ação</h3>
+                                <button type="button" onClick={() => setTransferenciaAberta(false)} className="modal-close" aria-label="Fechar transferência">x</button>
+                            </div>
+                            <form onSubmit={transferirAcao} className="modal-form">
+                                <div className="field-group">
+                                    <label>Origem</label>
+                                    <input
+                                        type="text"
+                                        value={`${posicaoEmTransferencia.ticker} - ${getNomeCorretora(posicaoEmTransferencia.corretoraRelacionada)} (${posicaoEmTransferencia.quantidadeTotal} disponível)`}
+                                        className="form-input"
+                                        readOnly
+                                    />
+                                </div>
+                                <div className="field-group">
+                                    <label>Corretora de destino</label>
+                                    <select
+                                        value={transferencia.corretoraDestinoId}
+                                        onChange={(event) => setTransferencia({ ...transferencia, corretoraDestinoId: event.target.value })}
+                                        className="form-input"
+                                    >
+                                        <option value="">Selecione uma corretora...</option>
+                                        {corretoras
+                                            .filter((corretora) => corretora.id !== posicaoEmTransferencia.corretoraRelacionada?.id)
+                                            .map((corretora) => (
+                                                <option key={corretora.id} value={corretora.id}>{getNomeCorretora(corretora)}</option>
+                                            ))}
+                                    </select>
+                                </div>
+                                <div className="field-group">
+                                    <label>Quantidade a transferir</label>
+                                    <input
+                                        type="number"
+                                        value={transferencia.quantidade}
+                                        onChange={(event) => setTransferencia({ ...transferencia, quantidade: event.target.value })}
+                                        min="0.01"
+                                        max={posicaoEmTransferencia.quantidadeTotal}
+                                        step="0.01"
+                                        className="form-input"
+                                    />
+                                </div>
+                                <div className="modal-actions">
+                                    <button type="button" onClick={() => setTransferenciaAberta(false)} className="btn btn-secondary">Cancelar</button>
+                                    <button type="submit" className="btn btn-primary">Confirmar transferência</button>
                                 </div>
                             </form>
                         </div>

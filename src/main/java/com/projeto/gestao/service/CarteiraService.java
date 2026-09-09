@@ -45,11 +45,28 @@ public class CarteiraService {
 
     @Transactional
     public PosicaoCarteira comprarAcao(Usuario usuario, UUID acaoId, UUID corretoraId, BigDecimal quantidade) {
+        return comprarAcao(usuario, acaoId, corretoraId, quantidade, null);
+    }
+
+    @Transactional
+    public PosicaoCarteira comprarAcao(
+            Usuario usuario,
+            UUID acaoId,
+            UUID corretoraId,
+            BigDecimal quantidade,
+            BigDecimal valorUnitario
+    ) {
         validarQuantidade(quantidade);
         Carteira carteira = buscarCarteiraPrincipal(usuario);
-        Acao acao = acaoService.atualizarCotacao(acaoId);
+        Acao acao = valorUnitario == null
+                ? acaoService.atualizarCotacao(acaoId)
+                : acaoService.buscarPorId(acaoId)
+                        .orElseThrow(() -> new IllegalArgumentException("Acao nao encontrada."));
+        validarQuantidadeDoMercado(acao, quantidade);
         Corretora corretora = buscarCorretoraObrigatoria(corretoraId);
-        BigDecimal valorCompra = acao.getCotacaoAtual().multiply(quantidade);
+        BigDecimal precoCompra = valorUnitario == null ? acao.getCotacaoAtual() : valorUnitario;
+        validarValorUnitario(precoCompra);
+        BigDecimal valorCompra = precoCompra.multiply(quantidade);
 
         if (carteira.getSaldoEmConta().compareTo(valorCompra) < 0) {
             throw new IllegalArgumentException("Saldo em conta insuficiente para esta compra.");
@@ -61,7 +78,7 @@ public class CarteiraService {
         BigDecimal quantidadeAnterior = posicao.getQuantidadeTotal();
         BigDecimal novaQuantidade = quantidadeAnterior.add(quantidade);
         BigDecimal precoMedio = posicao.getPrecoMedio().multiply(quantidadeAnterior)
-                .add(acao.getCotacaoAtual().multiply(quantidade))
+                .add(precoCompra.multiply(quantidade))
                 .divide(novaQuantidade, 2, RoundingMode.HALF_UP);
 
         posicao.setQuantidadeTotal(novaQuantidade);
@@ -69,7 +86,7 @@ public class CarteiraService {
         carteira.setSaldoEmConta(carteira.getSaldoEmConta().subtract(valorCompra));
         carteiraRepository.save(carteira);
         PosicaoCarteira salva = posicaoCarteiraRepository.save(posicao);
-        registrarTransacao(carteira, acao, corretora, TipoTransacao.COMPRA, quantidade, acao.getCotacaoAtual(), valorCompra);
+        registrarTransacao(carteira, acao, corretora, TipoTransacao.COMPRA, quantidade, precoCompra, valorCompra);
         calcularSaldoAcao(usuario);
         return salva;
     }
@@ -82,6 +99,7 @@ public class CarteiraService {
         PosicaoCarteira posicao = posicaoCarteiraRepository
                 .findByIdAndCarteiraId(posicaoId, carteira.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Posicao nao encontrada na sua carteira."));
+        validarQuantidadeDoMercado(posicao.getAcao(), quantidade);
 
         if (quantidade.compareTo(posicao.getQuantidadeTotal()) > 0) {
             throw new IllegalArgumentException("Quantidade de venda nao pode ser maior que a quantidade disponivel.");
@@ -105,6 +123,50 @@ public class CarteiraService {
         PosicaoCarteira salva = posicaoCarteiraRepository.save(posicao);
         calcularSaldoAcao(usuario);
         return salva;
+    }
+
+    @Transactional
+    public PosicaoCarteira transferirAcao(Usuario usuario, UUID posicaoId, UUID corretoraDestinoId, BigDecimal quantidade) {
+        validarQuantidade(quantidade);
+        Carteira carteira = buscarCarteiraPrincipal(usuario);
+        PosicaoCarteira origem = posicaoCarteiraRepository
+                .findByIdAndCarteiraId(posicaoId, carteira.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Posicao nao encontrada na sua carteira."));
+
+        if (origem.getCorretora().getId().equals(corretoraDestinoId)) {
+            throw new IllegalArgumentException("Selecione uma corretora de destino diferente da origem.");
+        }
+        if (quantidade.compareTo(origem.getQuantidadeTotal()) > 0) {
+            throw new IllegalArgumentException("Quantidade de transferencia nao pode ser maior que a quantidade disponivel.");
+        }
+
+        Corretora corretoraDestino = buscarCorretoraObrigatoria(corretoraDestinoId);
+        PosicaoCarteira destino = posicaoCarteiraRepository
+                .findByCarteiraIdAndAcaoIdAndCorretoraId(carteira.getId(), origem.getAcao().getId(), corretoraDestinoId)
+                .orElseGet(() -> novaPosicao(carteira, origem.getAcao(), corretoraDestino));
+
+        BigDecimal quantidadeDestino = destino.getQuantidadeTotal();
+        BigDecimal novaQuantidadeDestino = quantidadeDestino.add(quantidade);
+        BigDecimal precoMedioDestino = destino.getPrecoMedio().multiply(quantidadeDestino)
+                .add(origem.getPrecoMedio().multiply(quantidade))
+                .divide(novaQuantidadeDestino, 2, RoundingMode.HALF_UP);
+        destino.setQuantidadeTotal(novaQuantidadeDestino);
+        destino.setPrecoMedio(precoMedioDestino);
+        PosicaoCarteira destinoSalva = posicaoCarteiraRepository.save(destino);
+
+        BigDecimal quantidadeRestante = origem.getQuantidadeTotal().subtract(quantidade);
+        if (quantidadeRestante.signum() == 0) {
+            posicaoCarteiraRepository.delete(origem);
+        } else {
+            origem.setQuantidadeTotal(quantidadeRestante);
+            posicaoCarteiraRepository.save(origem);
+        }
+
+        BigDecimal valorTransferido = origem.getPrecoMedio().multiply(quantidade);
+        registrarTransacao(carteira, origem.getAcao(), origem.getCorretora(), TipoTransacao.TRANSFERENCIA_SAIDA, quantidade, origem.getPrecoMedio(), valorTransferido);
+        registrarTransacao(carteira, origem.getAcao(), corretoraDestino, TipoTransacao.TRANSFERENCIA_ENTRADA, quantidade, origem.getPrecoMedio(), valorTransferido);
+        calcularSaldoAcao(usuario);
+        return destinoSalva;
     }
 
     @Transactional
@@ -185,6 +247,12 @@ public class CarteiraService {
     private void validarQuantidade(BigDecimal quantidade) {
         if (quantidade == null || quantidade.signum() <= 0) {
             throw new IllegalArgumentException("Quantidade deve ser maior que zero.");
+        }
+    }
+
+    private void validarQuantidadeDoMercado(Acao acao, BigDecimal quantidade) {
+        if ("BR".equalsIgnoreCase(acao.getMercado()) && quantidade.stripTrailingZeros().scale() > 0) {
+            throw new IllegalArgumentException("Acoes brasileiras permitem somente quantidade inteira.");
         }
     }
 

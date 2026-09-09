@@ -4,6 +4,7 @@ import com.projeto.gestao.domain.dto.AporteRequest;
 import com.projeto.gestao.domain.dto.CompraAcaoRequest;
 import com.projeto.gestao.domain.dto.PosicaoAcaoResponse;
 import com.projeto.gestao.domain.dto.TransacaoCarteiraResponse;
+import com.projeto.gestao.domain.dto.TransferenciaAcaoRequest;
 import com.projeto.gestao.domain.dto.VendaAcaoRequest;
 import com.projeto.gestao.domain.model.Carteira;
 import com.projeto.gestao.domain.model.Usuario;
@@ -88,7 +89,7 @@ public class CarteiraController {
     ) {
         Usuario usuario = usuarioAutenticado(autorizacao);
         return ResponseEntity.ok(PosicaoAcaoResponse.from(
-                carteiraService.comprarAcao(usuario, acaoId, payload.corretoraId(), payload.quantidade())
+                carteiraService.comprarAcao(usuario, acaoId, payload.corretoraId(), payload.quantidade(), payload.valorUnitario())
         ));
     }
 
@@ -101,6 +102,18 @@ public class CarteiraController {
         Usuario usuario = usuarioAutenticado(autorizacao);
         return ResponseEntity.ok(PosicaoAcaoResponse.from(
                 carteiraService.venderAcao(usuario, posicaoId, payload.quantidade(), payload.valorUnitario())
+        ));
+    }
+
+    @PostMapping("/principal/posicoes/{posicaoId}/transferencias")
+    public ResponseEntity<PosicaoAcaoResponse> transferirAcao(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
+            @PathVariable UUID posicaoId,
+            @Valid @RequestBody TransferenciaAcaoRequest payload
+    ) {
+        Usuario usuario = usuarioAutenticado(autorizacao);
+        return ResponseEntity.ok(PosicaoAcaoResponse.from(
+                carteiraService.transferirAcao(usuario, posicaoId, payload.corretoraDestinoId(), payload.quantidade())
         ));
     }
 

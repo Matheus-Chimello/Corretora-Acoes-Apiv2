@@ -1,4 +1,5 @@
 import { apiUrl } from './api';
+import { notifyMarketTickerUpdate } from './marketTicker';
 
 export const AUTH_STORAGE_KEY = 'gestaoFinanceiraUser';
 const LEGACY_USERS_STORAGE_KEY = 'gestaoFinanceiraRegisteredUsers';
@@ -10,6 +11,7 @@ const getErrorMessage = async (response, fallbackMessage) => {
 
 const saveSession = (user) => {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+    notifyMarketTickerUpdate({ refresh: true });
 };
 
 const normalizeEmail = (email) => (email || '').trim().toLowerCase();
@@ -95,6 +97,7 @@ export const registerUser = async ({ name, email, password, confirmPassword }) =
 export const logout = () => {
     const currentUser = getCurrentUser();
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    notifyMarketTickerUpdate();
 
     if (!currentUser?.token) {
         return;

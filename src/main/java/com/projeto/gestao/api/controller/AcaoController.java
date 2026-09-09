@@ -87,6 +87,16 @@ public class AcaoController {
         return ResponseEntity.ok(AcaoResponse.from(acaoService.atualizarCotacao(id)));
     }
 
+    @PutMapping("/atualizar-cotacoes")
+    public ResponseEntity<List<AcaoResponse>> atualizarCotacoesDoCatalogo(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
+    ) {
+        usuarioAutenticado(autorizacao);
+        return ResponseEntity.ok(acaoService.atualizarCotacoesDoCatalogo().stream()
+                .map(AcaoResponse::from)
+                .toList());
+    }
+
     private Usuario usuarioAutenticado(String autorizacao) {
         return autenticacaoService.obterUsuarioAutenticado(autorizacao);
     }

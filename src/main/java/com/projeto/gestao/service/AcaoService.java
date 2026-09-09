@@ -51,6 +51,17 @@ public class AcaoService {
     public Acao atualizarCotacao(UUID id) {
         Acao acao = buscarPorId(id)
                 .orElseThrow(() -> new IllegalArgumentException("Acao nao encontrada."));
+        return atualizarCotacao(acao);
+    }
+
+    @Transactional
+    public List<Acao> atualizarCotacoesDoCatalogo() {
+        return acaoRepository.findAll().stream()
+                .map(this::atualizarCotacao)
+                .toList();
+    }
+
+    private Acao atualizarCotacao(Acao acao) {
         CotacaoAcaoPort.CotacaoInfo cotacaoInfo = consultarCotacao(acao.getTicker(), acao.getMercado());
         acao.setCotacaoAtual(cotacaoInfo.cotacaoAtual());
         acao.setNomeEmpresa(cotacaoInfo.nomeEmpresa() == null ? acao.getNomeEmpresa() : cotacaoInfo.nomeEmpresa());
