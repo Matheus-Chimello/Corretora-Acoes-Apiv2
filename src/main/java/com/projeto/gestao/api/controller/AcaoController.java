@@ -43,8 +43,8 @@ public class AcaoController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @Valid @RequestBody AcaoRequest payload
     ) {
-        usuarioAutenticado(autorizacao);
-        var acao = acaoService.cadastrarAcao(payload.ticker(), payload.mercado());
+        Usuario usuario = usuarioAutenticado(autorizacao);
+        var acao = acaoService.cadastrarAcao(usuario, payload.ticker(), payload.mercado());
         return ResponseEntity.status(HttpStatus.CREATED).body(AcaoResponse.from(acao));
     }
 
@@ -52,8 +52,8 @@ public class AcaoController {
     public ResponseEntity<List<AcaoResponse>> listarAcoes(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
     ) {
-        usuarioAutenticado(autorizacao);
-        return ResponseEntity.ok(acaoService.listarTodas().stream().map(AcaoResponse::from).toList());
+        Usuario usuario = usuarioAutenticado(autorizacao);
+        return ResponseEntity.ok(acaoService.listarTodas(usuario).stream().map(AcaoResponse::from).toList());
     }
 
     @GetMapping("/{id}")
@@ -61,8 +61,8 @@ public class AcaoController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @PathVariable UUID id
     ) {
-        usuarioAutenticado(autorizacao);
-        return acaoService.buscarPorId(id)
+        Usuario usuario = usuarioAutenticado(autorizacao);
+        return acaoService.buscarPorId(usuario, id)
                 .map(acao -> ResponseEntity.ok(AcaoResponse.from(acao)))
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -72,8 +72,8 @@ public class AcaoController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @PathVariable String ticker
     ) {
-        usuarioAutenticado(autorizacao);
-        return acaoService.buscarPorTicker(ticker)
+        Usuario usuario = usuarioAutenticado(autorizacao);
+        return acaoService.buscarPorTicker(usuario, ticker)
                 .map(acao -> ResponseEntity.ok(AcaoResponse.from(acao)))
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -83,16 +83,16 @@ public class AcaoController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @PathVariable UUID id
     ) {
-        usuarioAutenticado(autorizacao);
-        return ResponseEntity.ok(AcaoResponse.from(acaoService.atualizarCotacao(id)));
+        Usuario usuario = usuarioAutenticado(autorizacao);
+        return ResponseEntity.ok(AcaoResponse.from(acaoService.atualizarCotacao(usuario, id)));
     }
 
     @PutMapping("/atualizar-cotacoes")
     public ResponseEntity<List<AcaoResponse>> atualizarCotacoesDoCatalogo(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
     ) {
-        usuarioAutenticado(autorizacao);
-        return ResponseEntity.ok(acaoService.atualizarCotacoesDoCatalogo().stream()
+        Usuario usuario = usuarioAutenticado(autorizacao);
+        return ResponseEntity.ok(acaoService.atualizarCotacoesDoCatalogo(usuario).stream()
                 .map(AcaoResponse::from)
                 .toList());
     }

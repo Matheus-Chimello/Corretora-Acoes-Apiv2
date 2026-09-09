@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+
+    <changeSet id="014-isolar-catalogo-acoes-por-usuario" author="matheus">
+        <addColumn tableName="acoes">
+            <column name="usuario_id" type="UUID"/>
+        </addColumn>
+
+        <dropUniqueConstraint tableName="acoes"
+                              constraintName="uk_acoes_ticker"/>
+        <addUniqueConstraint tableName="acoes"
+                             columnNames="usuario_id, ticker"
+                             constraintName="uk_acoes_usuario_ticker"/>
+
+        <addForeignKeyConstraint baseTableName="acoes"
+                                 baseColumnNames="usuario_id"
+                                 referencedTableName="usuarios"
+                                 referencedColumnNames="id"
+                                 constraintName="fk_acoes_usuarios"/>
+    </changeSet>
+
+    <changeSet id="015-vincular-catalogo-existente-ao-usuario" author="matheus" dbms="postgresql">
+        <comment>Preserva os ativos existentes para o usuario que ja possui a posicao correspondente.</comment>
+        <sql>
+            UPDATE acoes acao
+            SET usuario_id = COALESCE(
+                (
+                    SELECT carteira.usuario_id
+                    FROM posicoes_carteira posicao
+                    JOIN carteira ON carteira.id = posicao.carteira_id
+                    WHERE posicao.acao_id = acao.id
+                    ORDER BY carteira.id
+                    LIMIT 1
+                ),
+                (
+                    SELECT usuario.id
+                    FROM usuarios usuario
+                    ORDER BY usuario.id
+                    LIMIT 1
+                )
+            )
+            WHERE acao.usuario_id IS NULL;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

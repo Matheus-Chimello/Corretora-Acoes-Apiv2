@@ -83,8 +83,8 @@ class CorretoraServiceTest {
     }
 
     @Test
-    @DisplayName("Deve salvar com validadaNaCvm=false quando os dados nao indicam instituicao financeira")
-    void deveSalvarComValidadaNaCvmFalseQuandoNaoFinanceiro() {
+    @DisplayName("Deve recusar corretora que nao foi validada")
+    void deveRecusarCorretoraNaoValidada() {
         String cnpj = "02332886000104";
         ValidacaoCnpjPort.CnpjInfo cnpjInfoNaoFinanceiro = new ValidacaoCnpjPort.CnpjInfo(
             "MERCADO EXEMPLO LTDA",
@@ -105,12 +105,13 @@ class CorretoraServiceTest {
         when(corretoraRepository.existsByCnpj(cnpj)).thenReturn(false);
         when(validacaoCnpjPort.getCnpjInfo(cnpj)).thenReturn(cnpjInfoNaoFinanceiro);
         when(validacaoCnpjPort.isValidAndMarketParticipant(cnpj)).thenReturn(false);
-        when(buscaCepPort.getCepInfo(anyString())).thenReturn(cepInfo());
-        when(corretoraRepository.save(any(Corretora.class))).thenAnswer(inv -> inv.getArgument(0));
+        IllegalArgumentException erro = assertThrows(
+                IllegalArgumentException.class,
+                () -> corretoraService.cadastrarCorretora(cnpj)
+        );
 
-        Corretora result = corretoraService.cadastrarCorretora(cnpj);
-
-        assertFalse(result.getValidadaNaCvm());
+        assertTrue(erro.getMessage().contains("nao foi validado"));
+        verify(corretoraRepository, never()).save(any(Corretora.class));
     }
 
     @Test

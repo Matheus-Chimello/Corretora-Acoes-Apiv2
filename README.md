@@ -1,183 +1,148 @@
-# API de Gestao de Acoes e Corretoras
+# 📌 API de Gestão de Ações e Corretoras
 
-API REST em Java 17 e Spring Boot para cadastro de corretoras e acoes, com consulta de dados reais em fontes publicas.
+Este projeto consiste em uma aplicação para gestão de ações, corretoras e carteiras de investimento. A solução possui uma **API RESTful** desenvolvida em Java com Spring Boot e uma interface web para organizar ativos, acompanhar cotações e registrar movimentações financeiras.
 
-## Requisitos atendidos
+A aplicação integra fontes externas para consultar dados de mercado e validar informações de corretoras, enriquecendo os cadastros locais e ajudando a manter a integridade das informações utilizadas na carteira.
 
-- Cadastro de corretora a partir de CNPJ, com validacao de formato e digitos verificadores.
-- Consulta de dados empresariais na Brasil API e validacao de CEP no ViaCEP antes da persistencia.
-- Identificacao de instituicao do mercado financeiro por situacao cadastral, CNAE e denominacao empresarial, registrada no campo `validadaNaCvm`.
-- Cotacao de acoes brasileiras pela brapi e americanas pela Alpha Vantage.
-- Ticker e CNPJ unicos no banco de dados.
-- Endpoints REST, DTOs, tratamento centralizado de erros e cache para CNPJ/CEP.
-- Login com sessao; todos os usuarios autenticados podem operar o catalogo e a propria carteira.
-- Carteira criada zerada para toda nova conta. O cadastro nao autentica automaticamente o usuario.
+> Projeto desenvolvido para fins acadêmicos e de organização pessoal. Não representa recomendação de investimento.
 
-## Arquitetura
+## 🎯 Objetivo
 
-`Controller -> Service -> Repository -> Entity`, com DTOs de entrada e saida na API. As integracoes externas sao isoladas por portas no dominio e adapters na infraestrutura.
+Construir uma solução de gestão de investimentos que permita:
 
-```text
-api/controller       Endpoints HTTP e autenticacao
-service              Regras de negocio
-repository           Persistencia JPA
-domain/model         Entidades
-domain/dto           Contratos HTTP
-domain/port          Contratos de integracao
-infra/adapter        Implementacoes das integracoes
-infra/client         Clientes OpenFeign
-```
+- Cadastrar ações dos mercados brasileiro e americano.
+- Consultar e atualizar cotações de ativos.
+- Validar corretoras a partir do CNPJ.
+- Controlar aportes, compras, vendas e transferências.
+- Calcular preço médio, lucro ou prejuízo e composição da carteira.
+- Manter o catálogo de ativos e a carteira separados por usuário.
 
-## Fontes externas
+---
 
-| Uso | Servico | Endpoint principal |
-|---|---|---|
-| Dados empresariais | Brasil API | `/api/cnpj/v1/{cnpj}` |
-| Endereco | ViaCEP | `/ws/{cep}/json/` |
-| Cotacao BR | brapi | `/api/quote/{ticker}` |
-| Cotacao US | Alpha Vantage | `GLOBAL_QUOTE` |
+## ✨ Funcionalidades
 
-As cotacoes dependem de rede, das chaves de acesso e dos limites dos provedores. Configure `BRAPI_TOKEN` para acoes brasileiras e `ALPHAVANTAGE_API_KEY` para acoes americanas. Erros de indisponibilidade, limite, credencial e recurso inexistente retornam JSON com `timestamp`, `status`, `error` e `message`.
+- Cadastro e atualização de ações.
+- Catálogo individual de ativos para cada usuário.
+- Cadastro de corretoras após validação das informações públicas.
+- Consulta de cotações de ações brasileiras e americanas.
+- Carteira com saldo disponível e controle de aportes.
+- Compra e venda de ações com valor unitário e valor total.
+- Cálculo de preço médio ponderado por ação e corretora.
+- Transferência de posições entre corretoras.
+- Histórico de aportes, compras, vendas e transferências.
+- Indicadores de resultado por posição.
+- Gráficos de composição e acompanhamento da carteira.
+- Filtros para facilitar a consulta de tabelas e movimentações.
 
-## Configuracao
+---
 
-Use `.env.example` como referencia e configure as variaveis no terminal ou na configuracao de execucao da IDE. O Spring Boot nao carrega um arquivo `.env` automaticamente. Nao versione chaves reais.
+## ✅ APIs Utilizadas
 
-| Perfil | Banco | Como ativar |
-|---|---|---|
-| `test` (padrao) | H2 em memoria | sem variavel adicional |
-| `dev` | PostgreSQL | `SPRING_PROFILES_ACTIVE=dev` |
-| `mysql` | MySQL | `SPRING_PROFILES_ACTIVE=mysql` |
+### 1. [BRAPI](https://brapi.dev) - Cotações de ações
 
-Variaveis de cotacao:
+- **Descrição**: Serviço de dados financeiros com informações de mercado e cotações de ativos.
+- **Uso no sistema**: Utilizado para consultar ações brasileiras e como fonte preferencial para cotações de ativos disponíveis na plataforma.
 
-```properties
-BRAPI_TOKEN=sua_chave_brapi
-ALPHAVANTAGE_API_KEY=sua_chave
-```
+### 2. [Alpha Vantage](https://www.alphavantage.co) - Mercado americano
 
-No PowerShell, por exemplo:
+- **Descrição**: Plataforma de dados financeiros com informações de ações negociadas nos Estados Unidos.
+- **Uso no sistema**: Utilizada como alternativa para consulta de cotações de ações americanas quando necessário.
 
-```powershell
-$env:ALPHAVANTAGE_API_KEY = "sua_chave"
-$env:SPRING_PROFILES_ACTIVE = "dev"
-.\mvnw.cmd spring-boot:run
-```
+### 3. [Brasil API](https://brasilapi.com.br) - Dados de CNPJ
 
-## Execucao
+- **Descrição**: API pública que disponibiliza dados brasileiros, incluindo informações cadastrais de empresas.
+- **Uso no sistema**: Consultada para obter dados do CNPJ informado no cadastro de corretoras e apoiar a validação da instituição.
 
-Com Docker, o frontend, o backend e o PostgreSQL sao executados em containers separados:
+### 4. [ViaCEP](https://viacep.com.br) - Consulta de CEP
 
-```powershell
-docker compose up -d --build
-```
+- **Descrição**: Serviço público para consulta de endereços brasileiros por CEP.
+- **Uso no sistema**: Utilizado para validar e complementar os dados de endereço associados às corretoras.
 
-Abra `http://localhost:8082`. O frontend e servido pelo Nginx e encaminha as rotas da API para o backend. Para consultar a API diretamente, use `http://localhost:8081`.
+---
 
-Para parar os containers:
+## 🔄 Como Funciona
 
-```powershell
-docker compose down
-```
+### Corretoras
 
-Sem Docker, voce tambem pode executar cada parte pelo IntelliJ e pelo terminal:
+1. O usuário informa o CNPJ.
+2. A aplicação consulta os dados públicos da empresa.
+3. O endereço é validado por meio do CEP.
+4. A corretora só é cadastrada quando é identificada como participante válida do mercado.
 
-```powershell
-.\mvnw.cmd test
-.\mvnw.cmd spring-boot:run
+### Ações e cotações
 
-Set-Location src\main\front
-npm.cmd install
-npm.cmd run dev
-```
+1. O usuário escolhe o mercado e informa o ticker.
+2. A aplicação consulta a cotação em uma fonte externa.
+3. A moeda retornada é validada conforme o mercado selecionado.
+4. O ativo é salvo apenas no catálogo do usuário autenticado.
+5. As cotações podem ser atualizadas individualmente ou em lote.
 
-Nesse modo, abra `http://127.0.0.1:5173`. A API fica em `http://localhost:8080`.
+### Carteira
 
-Perfis locais iniciais: `admin@corretora.local` / `admin123` e `usuario@corretora.local` / `user123`. Altere essas credenciais em qualquer ambiente compartilhado.
+1. O usuário realiza aportes para formar o saldo disponível.
+2. As compras registram ativo, corretora, quantidade e valor unitário.
+3. O preço médio é atualizado de forma ponderada.
+4. Vendas e transferências são registradas no histórico.
+5. A interface apresenta posição atual, resultado e composição da carteira.
 
-Defina `BRAPI_TOKEN` e `ALPHAVANTAGE_API_KEY` no arquivo `.env` antes de iniciar a aplicação. As chaves ficam somente no backend, nunca no frontend ou no Git. A BRAPI deve ser autenticada pelo cabeçalho `Authorization`, evitando que o token apareça na URL ou nos logs.
+---
 
-## Autenticacao e permissoes
+## ✅ Tecnologias e Ferramentas
 
-1. `POST /auth/login` retorna um token de sessao.
-2. Envie `Authorization: Bearer <token>` nas rotas protegidas.
-3. Todos os usuarios autenticados podem cadastrar corretoras e ativos, atualizar cotacoes, aportar, comprar e vender.
-4. As operacoes financeiras continuam restritas a carteira do proprio usuario.
+- **Linguagem e backend**: Java e Spring Boot.
+- **Frontend**: React e Vite.
+- **Persistência**: PostgreSQL.
+- **Testes**: H2 e JUnit.
+- **Versionamento do banco**: Liquibase.
+- **Comunicação externa**: Spring Cloud OpenFeign.
+- **Containerização**: Docker e Docker Compose.
+- **Gráficos**: Recharts.
 
-`POST /auth/register` cria uma conta `USER`, uma carteira com saldos `0` e retorna o usuario sem token. O login e uma etapa separada.
+---
 
-## Endpoints obrigatorios
+## 🏗️ Organização do Projeto
 
-| Metodo | Rota | Regra |
-|---|---|---|
-| POST | `/corretoras` | usuario autenticado; recebe somente `cnpj` |
-| GET | `/corretoras` | lista corretoras |
-| GET | `/corretoras/{id}` | busca por ID |
-| GET | `/corretoras/cnpj/{cnpj}` | busca por CNPJ |
-| POST | `/acoes` | usuario autenticado; consulta cotacao e cria ticker unico no catalogo |
-| GET | `/acoes` | lista acoes cadastradas |
-| GET | `/acoes/{id}` | busca por ID |
-| GET | `/acoes/ticker/{ticker}` | busca por ticker |
-| PUT | `/acoes/{id}/atualizar-cotacao` | usuario autenticado; atualiza pela API adequada |
+O sistema é dividido em três partes principais:
 
-Operacoes da carteira: `POST /carteiras/principal/aportes` adiciona saldo, `POST /carteiras/principal/acoes/{acaoId}/compras` registra a compra com a corretora escolhida, `POST /carteiras/principal/posicoes/{posicaoId}/vendas` registra uma venda com valor unitario informado, `GET /carteiras/principal/posicoes` lista as posicoes com preco medio por corretora, e `GET /carteiras/principal/transacoes` retorna o historico de compras e vendas.
+- **Interface web**: apresenta o catálogo, as corretoras, a carteira, as tabelas, os gráficos e os formulários de operação.
+- **API**: recebe as ações do usuário, aplica as regras de negócio, consulta os serviços externos e controla o acesso aos dados.
+- **Banco de dados**: armazena usuários, corretoras, ativos, posições e histórico de movimentações.
 
-## Diagrama ER
+A API segue uma organização em camadas. Os controllers recebem as requisições, os serviços executam as regras de negócio, os repositórios acessam os dados e as integrações externas ficam isoladas em adaptadores próprios.
 
-```mermaid
-erDiagram
-    USUARIO ||--o{ CARTEIRA : possui
-    CARTEIRA ||--o{ POSICAO_CARTEIRA : contem
-    ACAO ||--o{ POSICAO_CARTEIRA : compoe
-    CORRETORA ||--o{ POSICAO_CARTEIRA : intermedia
-    CARTEIRA ||--o{ TRANSACAO_CARTEIRA : registra
-    ACAO ||--o{ TRANSACAO_CARTEIRA : negociada
-    CORRETORA ||--o{ TRANSACAO_CARTEIRA : executa
+---
 
-    USUARIO {
-        UUID id PK
-        string nome
-        string email UK
-        string papel
-    }
-    CARTEIRA {
-        long id PK
-        decimal saldo_acao
-        decimal saldo_em_conta
-        UUID usuario_id FK
-    }
-    CORRETORA {
-        UUID id PK
-        string cnpj UK
-        boolean validada_na_cvm
-    }
-    ACAO {
-        UUID id PK
-        string ticker UK
-        string mercado
-        decimal cotacao_atual
-    }
-    POSICAO_CARTEIRA {
-        UUID id PK
-        long carteira_id FK
-        UUID acao_id FK
-        UUID corretora_id FK
-        decimal quantidade_total
-        decimal preco_medio
-    }
-    TRANSACAO_CARTEIRA {
-        UUID id PK
-        long carteira_id FK
-        UUID acao_id FK
-        UUID corretora_id FK
-        string tipo
-        decimal quantidade
-        decimal preco_unitario
-        decimal valor_total
-        datetime data_hora
-    }
-```
+## 🔐 Segurança e Configuração
 
-## Testes e collection
+- Cada usuário visualiza apenas o próprio catálogo de ações e a própria carteira.
+- Uma conta nova começa com carteira e catálogo de ativos vazios.
+- O acesso às funcionalidades é protegido por autenticação.
+- As credenciais e chaves utilizadas pela aplicação permanecem protegidas e não fazem parte do código público.
 
-Execute `./mvnw.cmd test` para os testes unitarios e de contexto. A collection atualizada esta em [docs/postman_collection.json](docs/postman_collection.json); ela mantem tokens separados para administrador e investidor. Primeiro crie a corretora e o ativo; depois execute o login do investidor, o aporte, a compra com corretora, a venda e a consulta ao historico.
+---
+
+## 🧪 Testes
+
+O projeto possui testes automatizados para validar as regras mais importantes, como cadastro de ativos, validação de corretoras, compras, vendas, transferências, preço médio e separação dos dados por usuário.
+
+---
+
+## 📬 API
+
+A API utiliza autenticação por token. Após o login, o usuário pode consultar e administrar apenas os dados relacionados à sua própria conta.
+
+---
+
+## 🤝 Contribuição
+
+Contribuições são bem-vindas. Antes de enviar uma alteração:
+
+1. Verifique se nenhuma informação sensível foi incluída.
+2. Mantenha as alterações alinhadas às regras de negócio do projeto.
+3. Preserve a separação dos dados entre os usuários.
+
+---
+
+## 📄 Licença
+
+Projeto acadêmico desenvolvido para estudo e evolução de uma aplicação de gestão de investimentos.

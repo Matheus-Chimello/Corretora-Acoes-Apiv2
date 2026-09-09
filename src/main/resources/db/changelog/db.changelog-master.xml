@@ -17,5 +17,9 @@
              relativeToChangelogFile="true"/>
     <include file="changes/006-ampliar-tipo-transacao.xml"
              relativeToChangelogFile="true"/>
+    <include file="changes/007-isolar-catalogo-por-usuario.xml"
+             relativeToChangelogFile="true"/>
+    <include file="changes/008-remover-unicidade-global-acoes.xml"
+             relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

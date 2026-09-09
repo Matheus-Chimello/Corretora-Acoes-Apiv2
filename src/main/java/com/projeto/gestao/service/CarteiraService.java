@@ -59,8 +59,8 @@ public class CarteiraService {
         validarQuantidade(quantidade);
         Carteira carteira = buscarCarteiraPrincipal(usuario);
         Acao acao = valorUnitario == null
-                ? acaoService.atualizarCotacao(acaoId)
-                : acaoService.buscarPorId(acaoId)
+                ? acaoService.atualizarCotacao(usuario, acaoId)
+                : acaoService.buscarPorId(usuario, acaoId)
                         .orElseThrow(() -> new IllegalArgumentException("Acao nao encontrada."));
         validarQuantidadeDoMercado(acao, quantidade);
         Corretora corretora = buscarCorretoraObrigatoria(corretoraId);
@@ -225,7 +225,7 @@ public class CarteiraService {
         posicoes.stream()
                 .map(posicao -> posicao.getAcao().getId())
                 .distinct()
-                .forEach(acaoService::atualizarCotacao);
+                .forEach(acaoId -> acaoService.atualizarCotacao(usuario, acaoId));
 
         calcularSaldoAcao(usuario);
         return listarPosicoes(usuario);

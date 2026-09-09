@@ -46,6 +46,9 @@ public class CorretoraService {
 
         boolean validadaCvm = validacaoCnpjPort.isValidAndMarketParticipant(cnpjLimpo)
                 || cnpjInfoIndicaParticipanteMercado(cnpjInfo);
+        if (!validadaCvm) {
+            throw new IllegalArgumentException("O CNPJ informado nao foi validado como corretora ou participante do mercado.");
+        }
 
         Corretora corretora = new Corretora();
         corretora.setCnpj(cnpjLimpo);
