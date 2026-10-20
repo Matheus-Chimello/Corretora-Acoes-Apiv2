@@ -30,4 +30,17 @@ class PosicaoAcaoResponseTest {
         assertEquals(0, new BigDecimal("10.00").compareTo(resposta.lucroPrejuizo()));
         assertEquals(0, new BigDecimal("25.00").compareTo(resposta.rentabilidadePercentual()));
     }
+
+    @Test
+    void deveTratarDadosAusentesESemValorInvestidoComoZero() {
+        Acao acao = new Acao();
+        PosicaoCarteira posicao = new PosicaoCarteira();
+        posicao.setAcao(acao);
+        posicao.setQuantidadeTotal(null);
+        posicao.setPrecoMedio(null);
+        PosicaoAcaoResponse resposta = PosicaoAcaoResponse.from(posicao);
+        assertEquals(0, BigDecimal.ZERO.compareTo(resposta.posicao()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(resposta.valorInvestido()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(resposta.rentabilidadePercentual()));
+    }
 }

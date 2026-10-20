@@ -165,6 +165,73 @@ class AcaoServiceTest {
         assertEquals(2, acaoService.listarTodas(usuario).size());
     }
 
+    @Test
+    void deveRejeitarTickerOuMercadoAusente() {
+        Usuario usuario = usuario();
+        assertThrows(IllegalArgumentException.class, () -> acaoService.cadastrarAcao(usuario, null, "BR"));
+        assertThrows(IllegalArgumentException.class, () -> acaoService.cadastrarAcao(usuario, " ", "BR"));
+        assertThrows(IllegalArgumentException.class, () -> acaoService.cadastrarAcao(usuario, "PETR4", null));
+        assertThrows(IllegalArgumentException.class, () -> acaoService.cadastrarAcao(usuario, "PETR4", " "));
+        verify(cotacaoAcaoPort, never()).getCotacao(any(), any());
+    }
+
+    @Test
+    void deveRejeitarCotacaoAusenteOuSemPreco() {
+        Usuario usuario = usuario();
+        when(cotacaoAcaoPort.getCotacao("PETR4", "BR")).thenReturn(null)
+                .thenReturn(new CotacaoAcaoPort.CotacaoInfo("PETR4", "Petrobras", "BRL", null));
+        assertThrows(IllegalArgumentException.class, () -> acaoService.cadastrarAcao(usuario, "PETR4", "BR"));
+        assertThrows(IllegalArgumentException.class, () -> acaoService.cadastrarAcao(usuario, "PETR4", "BR"));
+        verify(acaoRepository, never()).save(any());
+    }
+
+    @Test
+    void deveRejeitarMoedaDesconhecidaOuAusente() {
+        Usuario usuario = usuario();
+        when(cotacaoAcaoPort.getCotacao("PETR4", "BR"))
+                .thenReturn(new CotacaoAcaoPort.CotacaoInfo("PETR4", "Petrobras", null, BigDecimal.TEN))
+                .thenReturn(new CotacaoAcaoPort.CotacaoInfo("PETR4", "Petrobras", "EUR", BigDecimal.TEN));
+        assertTrue(assertThrows(IllegalArgumentException.class, () -> acaoService.cadastrarAcao(usuario, "PETR4", "BR")).getMessage().contains("compativel"));
+        assertTrue(assertThrows(IllegalArgumentException.class, () -> acaoService.cadastrarAcao(usuario, "PETR4", "BR")).getMessage().contains("compativel"));
+    }
+
+    @Test
+    void usaTickerComoNomeQuandoFornecedorNaoInformaEmpresa() {
+        Usuario usuario = usuario();
+        when(cotacaoAcaoPort.getCotacao("PETR4", "BR")).thenReturn(new CotacaoAcaoPort.CotacaoInfo("PETR4", null, "brl", BigDecimal.TEN));
+        when(acaoRepository.save(any(Acao.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        assertEquals("PETR4", acaoService.cadastrarAcao(usuario, "petr4", "br").getNomeEmpresa());
+    }
+
+    @Test
+    void buscaTickerNormalizadoEIgnoraBuscaVazia() {
+        Usuario usuario = usuario();
+        Acao acao = acao(UUID.randomUUID(), usuario, "PETR4", "BR", "10");
+        when(acaoRepository.findByUsuarioIdAndTicker(usuario.getId(), "PETR4")).thenReturn(Optional.of(acao));
+        assertTrue(acaoService.buscarPorTicker(usuario, null).isEmpty());
+        assertTrue(acaoService.buscarPorTicker(usuario, " ").isEmpty());
+        assertSame(acao, acaoService.buscarPorTicker(usuario, " petr4 ").orElseThrow());
+    }
+
+    @Test
+    void naoAtualizaAcaoDeOutroUsuarioOuInexistente() {
+        Usuario usuario = usuario();
+        assertThrows(IllegalArgumentException.class, () -> acaoService.atualizarCotacao(usuario, UUID.randomUUID()));
+        verify(cotacaoAcaoPort, never()).getCotacao(any(), any());
+    }
+
+    @Test
+    void preservaNomeExistenteQuandoCotacaoNaoInformaNome() {
+        Usuario usuario = usuario();
+        UUID id = UUID.randomUUID();
+        Acao acao = acao(id, usuario, "PETR4", "BR", "10");
+        acao.setNomeEmpresa("Petrobras");
+        when(acaoRepository.findByIdAndUsuarioId(id, usuario.getId())).thenReturn(Optional.of(acao));
+        when(cotacaoAcaoPort.getCotacao("PETR4", "BR")).thenReturn(new CotacaoAcaoPort.CotacaoInfo("PETR4", null, "BRL", BigDecimal.TEN));
+        when(acaoRepository.save(acao)).thenReturn(acao);
+        assertEquals("Petrobras", acaoService.atualizarCotacao(usuario, id).getNomeEmpresa());
+    }
+
     private Acao acao(UUID id, Usuario usuario, String ticker, String mercado, String cotacaoAtual) {
         Acao acao = new Acao();
         acao.setId(id);

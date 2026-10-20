@@ -1,0 +1,79 @@
+name: Testes e cobertura
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    env:
+      SPRING_PROFILES_ACTIVE: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Testes e cobertura Java
+        run: bash ./mvnw verify
+      - name: Publicar relatorio JaCoCo
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura-backend
+          path: target/site/jacoco/
+          if-no-files-found: ignore
+      - name: Instalar diff-cover
+        if: always() && github.event_name == 'pull_request'
+        run: python -m pip install 'diff-cover>=9,<10'
+      - name: Verificar linhas Java alteradas
+        if: always() && github.event_name == 'pull_request' && hashFiles('target/site/jacoco/jacoco.xml') != ''
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: diff-cover target/site/jacoco/jacoco.xml --compare-branch="origin/$BASE_REF" --fail-under=80
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/main/front
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/main/front/package-lock.json
+      - run: npm ci
+      - name: Testes e cobertura React
+        run: npm run test:coverage
+      - name: Publicar relatorio do frontend
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura-frontend
+          path: src/main/front/coverage/
+          if-no-files-found: ignore
+      - name: Instalar diff-cover
+        if: always() && github.event_name == 'pull_request'
+        run: python -m pip install 'diff-cover>=9,<10'
+      - name: Verificar linhas React alteradas
+        if: always() && github.event_name == 'pull_request' && hashFiles('src/main/front/coverage/lcov.info') != ''
+        working-directory: .
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          sed 's|^SF:|SF:src/main/front/|' src/main/front/coverage/lcov.info > /tmp/frontend-lcov.info
+          diff-cover /tmp/frontend-lcov.info --compare-branch="origin/$BASE_REF" --fail-under=80
+      - name: Compilar frontend
+        if: always()
+        run: npm run build

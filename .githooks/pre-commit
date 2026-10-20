@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+
+export SPRING_PROFILES_ACTIVE=test
+sh ./mvnw verify
+(cd src/main/front && npm run test:coverage)

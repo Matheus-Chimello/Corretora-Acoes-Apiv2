@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class CarteiraServiceTest {
@@ -352,6 +353,63 @@ class CarteiraServiceTest {
         verify(transacaoCarteiraRepository).save(transacaoCaptor.capture());
         assertEquals(TipoTransacao.APORTE, transacaoCaptor.getValue().getTipo());
         assertEquals(0, new BigDecimal("25.00").compareTo(transacaoCaptor.getValue().getValorTotal()));
+    }
+
+    @Test
+    void deveRecusarVendaAcimaDaPosicaoSemAlterarSaldo() {
+        UUID id = UUID.randomUUID();
+        PosicaoCarteira posicao = new PosicaoCarteira();
+        posicao.setAcao(acao(UUID.randomUUID(), "PETR4", "10"));
+        posicao.setQuantidadeTotal(new BigDecimal("2"));
+        when(carteiraRepository.findFirstByUsuarioId(usuario.getId())).thenReturn(Optional.of(carteira));
+        when(posicaoCarteiraRepository.findByIdAndCarteiraId(id, 7L)).thenReturn(Optional.of(posicao));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> carteiraService.venderAcao(usuario, id, new BigDecimal("3"), BigDecimal.TEN));
+        assertEquals(0, new BigDecimal("100").compareTo(carteira.getSaldoEmConta()));
+        verify(transacaoCarteiraRepository, never()).save(any());
+    }
+
+    @Test
+    void deveRemoverPosicaoAposVendaIntegral() {
+        UUID id = UUID.randomUUID();
+        PosicaoCarteira posicao = new PosicaoCarteira();
+        posicao.setAcao(acao(UUID.randomUUID(), "PETR4", "10"));
+        posicao.setCorretora(corretora(UUID.randomUUID()));
+        posicao.setQuantidadeTotal(new BigDecimal("2"));
+        when(carteiraRepository.findFirstByUsuarioId(usuario.getId())).thenReturn(Optional.of(carteira));
+        when(posicaoCarteiraRepository.findByIdAndCarteiraId(id, 7L)).thenReturn(Optional.of(posicao));
+        when(carteiraRepository.save(any(Carteira.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PosicaoCarteira resultado = carteiraService.venderAcao(usuario, id, new BigDecimal("2"), new BigDecimal("12"));
+        assertEquals(0, resultado.getQuantidadeTotal().signum());
+        assertEquals(0, new BigDecimal("124").compareTo(carteira.getSaldoEmConta()));
+        verify(posicaoCarteiraRepository).delete(posicao);
+    }
+
+    @Test
+    void deveRecusarTransferenciaParaMesmaCorretoraOuAcimaDaQuantidade() {
+        UUID id = UUID.randomUUID();
+        Corretora origem = corretora(UUID.randomUUID());
+        PosicaoCarteira posicao = new PosicaoCarteira();
+        posicao.setCorretora(origem);
+        posicao.setQuantidadeTotal(new BigDecimal("2"));
+        when(carteiraRepository.findFirstByUsuarioId(usuario.getId())).thenReturn(Optional.of(carteira));
+        when(posicaoCarteiraRepository.findByIdAndCarteiraId(id, 7L)).thenReturn(Optional.of(posicao));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> carteiraService.transferirAcao(usuario, id, origem.getId(), BigDecimal.ONE));
+        assertThrows(IllegalArgumentException.class,
+                () -> carteiraService.transferirAcao(usuario, id, UUID.randomUUID(), new BigDecimal("3")));
+        verify(transacaoCarteiraRepository, never()).save(any());
+    }
+
+    @Test
+    void deveRecusarQuantidadeInvalidaAntesDeBuscarCarteira() {
+        assertThrows(IllegalArgumentException.class, () -> carteiraService.realizarAporte(usuario, null));
+        assertThrows(IllegalArgumentException.class, () -> carteiraService.realizarAporte(usuario, BigDecimal.ZERO));
+        assertThrows(IllegalArgumentException.class, () -> carteiraService.realizarAporte(usuario, BigDecimal.ONE.negate()));
+        verify(carteiraRepository, never()).findFirstByUsuarioId(any());
     }
 
     private Carteira carteira(BigDecimal saldoEmConta) {
