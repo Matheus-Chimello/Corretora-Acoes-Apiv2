@@ -5,26 +5,42 @@ import com.projeto.gestao.domain.model.PapelUsuario;
 import com.projeto.gestao.domain.model.Usuario;
 import com.projeto.gestao.repository.CarteiraRepository;
 import com.projeto.gestao.repository.UsuarioRepository;
+import com.projeto.gestao.config.JwtProperties;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.Locale;
-import java.util.UUID;
+import java.time.Instant;
 
 @Service
 public class AutenticacaoService {
 
     private final UsuarioRepository usuarioRepository;
     private final CarteiraRepository carteiraRepository;
-    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+    private final JwtEncoder jwtEncoder;
+    private final JwtProperties jwtProperties;
 
-    public AutenticacaoService(UsuarioRepository usuarioRepository, CarteiraRepository carteiraRepository) {
+    public AutenticacaoService(UsuarioRepository usuarioRepository, CarteiraRepository carteiraRepository,
+                               PasswordEncoder passwordEncoder, AuthenticationManager authenticationManager,
+                               JwtEncoder jwtEncoder, JwtProperties jwtProperties) {
         this.usuarioRepository = usuarioRepository;
         this.carteiraRepository = carteiraRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.authenticationManager = authenticationManager;
+        this.jwtEncoder = jwtEncoder;
+        this.jwtProperties = jwtProperties;
     }
 
     @Transactional
@@ -46,28 +62,31 @@ public class AutenticacaoService {
 
     @Transactional
     public RespostaAutenticacao login(String email, String senha) {
-        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(normalizarEmail(email))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email ou senha inválidos."));
-
-        if (!passwordEncoder.matches(senha == null ? "" : senha, usuario.getSenhaHash())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email ou senha inválidos.");
-        }
-
-        usuario.setTokenSessao(UUID.randomUUID().toString());
-        usuarioRepository.save(usuario);
-        return resposta(usuario, usuario.getTokenSessao());
+        var authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
+                normalizarEmail(email), senha == null ? "" : senha));
+        Instant issuedAt = Instant.now();
+        var claims = JwtClaimsSet.builder().issuer(jwtProperties.issuer()).subject(authentication.getName())
+                .issuedAt(issuedAt).expiresAt(issuedAt.plus(jwtProperties.expiration()))
+                .claim("authorities", authentication.getAuthorities().stream()
+                        .map(GrantedAuthority::getAuthority).toList()).build();
+        var header = JwsHeader.with(MacAlgorithm.HS256).type("JWT").build();
+        String token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(authentication.getName()).orElseThrow();
+        return resposta(usuario, token);
     }
 
     @Transactional
     public void encerrarSessao(String autorizacao) {
-        Usuario usuario = obterUsuarioAutenticado(autorizacao);
-        usuario.setTokenSessao(null);
-        usuarioRepository.save(usuario);
+        // JWT stateless: o cliente descarta o token; ele permanece valido ate expirar.
+        obterUsuarioAutenticado(autorizacao);
     }
 
     public Usuario obterUsuarioAutenticado(String autorizacao) {
-        String token = extrairToken(autorizacao);
-        return usuarioRepository.findByTokenSessao(token)
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Autenticação obrigatória.");
+        }
+        return usuarioRepository.findByEmailIgnoreCase(authentication.getName())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sessão inválida ou expirada."));
     }
 
@@ -85,8 +104,8 @@ public class AutenticacaoService {
         if (!emailNormalizado.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Informe um email válido.");
         }
-        if (senha.length() < 6) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A senha deve ter pelo menos 6 caracteres.");
+        if (senha.length() < 8 || senha.length() > 72) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A senha deve ter entre 8 e 72 caracteres.");
         }
         if (usuarioRepository.findByEmailIgnoreCase(emailNormalizado).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Já existe uma conta com este email.");
@@ -100,26 +119,15 @@ public class AutenticacaoService {
         return usuarioRepository.save(usuario);
     }
 
-    private String extrairToken(String autorizacao) {
-        if (autorizacao == null || !autorizacao.startsWith("Bearer ")) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Autenticação obrigatória.");
-        }
-
-        String token = autorizacao.substring("Bearer ".length()).trim();
-        if (token.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Autenticação obrigatória.");
-        }
-        return token;
-    }
-
     private String normalizarEmail(String email) {
         return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 
-    public record RespostaAutenticacao(String token, String nome, String email, String role) {
+    public record RespostaAutenticacao(String token, String nome, String email, String role, String tipo, long expiresIn) {
     }
 
     private RespostaAutenticacao resposta(Usuario usuario, String token) {
-        return new RespostaAutenticacao(token, usuario.getNome(), usuario.getEmail(), usuario.getPapel().name());
+        return new RespostaAutenticacao(token, usuario.getNome(), usuario.getEmail(), usuario.getPapel().name(),
+                "Bearer", jwtProperties.expiration().toSeconds());
     }
 }

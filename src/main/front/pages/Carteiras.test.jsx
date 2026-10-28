@@ -1,14 +1,12 @@
+import { renderWithRouter as render } from '../test/http';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import Carteiras from './Carteiras';
-import { apiFetch } from '../services/api';
-import { notifyMarketTickerUpdate } from '../services/marketTicker';
+import { http } from '../test/http';
+import { marketUpdates } from '../test/http';
 
-vi.mock('../components/Navbar', () => ({ default: () => null }));
-vi.mock('../services/api', () => ({ apiFetch: vi.fn() }));
-vi.mock('../services/marketTicker', () => ({ notifyMarketTickerUpdate: vi.fn() }));
 
 const corretoras = [
     { id: 'c1', razaoSocial: 'Primeira', validadaNaCvm: true },
@@ -22,7 +20,7 @@ const resposta = (dados, ok = true) => ({ ok, json: async () => dados });
 describe('operacoes da carteira', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        apiFetch.mockImplementation(async (url) => {
+        http.mockImplementation(async (url) => {
             const dados = {
                 '/carteiras/principal': { id: 'carteira' },
                 '/carteiras/principal/posicoes': [posicao],
@@ -55,10 +53,10 @@ describe('operacoes da carteira', () => {
         fireEvent.change(inputs[1], { target: { value: '31' } });
         fireEvent.submit(form);
         expect(await screen.findByText('Compra registrada na carteira.')).toBeInTheDocument();
-        expect(apiFetch).toHaveBeenCalledWith('/carteiras/principal/acoes/a1/compras', expect.objectContaining({
+        expect(http).toHaveBeenCalledWith('/carteiras/principal/acoes/a1/compras', expect.objectContaining({
             method: 'POST', body: JSON.stringify({ corretoraId: 'c2', quantidade: '2', valorUnitario: '31' })
         }));
-        expect(notifyMarketTickerUpdate).toHaveBeenCalled();
+        expect(marketUpdates).toHaveBeenCalled();
     });
 
     it('recusa quantidade fracionada na compra brasileira', async () => {
@@ -70,7 +68,7 @@ describe('operacoes da carteira', () => {
         fireEvent.change(within(form).getAllByRole('spinbutton')[0], { target: { value: '1.5' } });
         fireEvent.submit(form);
         expect(await screen.findByText('Ações brasileiras permitem somente quantidade inteira.')).toBeInTheDocument();
-        expect(apiFetch).not.toHaveBeenCalledWith(expect.stringContaining('/compras'), expect.anything());
+        expect(http).not.toHaveBeenCalledWith(expect.stringContaining('/compras'), expect.anything());
     });
 
     it('registra venda com quantidade e preco informados', async () => {
@@ -82,7 +80,7 @@ describe('operacoes da carteira', () => {
         fireEvent.change(valor, { target: { value: '35' } });
         fireEvent.submit(form);
         expect(await screen.findByText('Venda registrada e saldo atualizado.')).toBeInTheDocument();
-        expect(apiFetch).toHaveBeenCalledWith('/carteiras/principal/posicoes/p1/vendas', expect.objectContaining({
+        expect(http).toHaveBeenCalledWith('/carteiras/principal/posicoes/p1/vendas', expect.objectContaining({
             method: 'POST', body: JSON.stringify({ quantidade: '2', valorUnitario: '35' })
         }));
     });
@@ -94,7 +92,7 @@ describe('operacoes da carteira', () => {
         fireEvent.change(within(form).getAllByRole('spinbutton')[0], { target: { value: '5' } });
         fireEvent.submit(form);
         expect(await screen.findByText('A quantidade informada é maior que a disponível na sua carteira.')).toBeInTheDocument();
-        expect(apiFetch).not.toHaveBeenCalledWith(expect.stringContaining('/vendas'), expect.anything());
+        expect(http).not.toHaveBeenCalledWith(expect.stringContaining('/vendas'), expect.anything());
     });
 
     it('nao transfere sem escolher uma corretora de destino', async () => {
@@ -103,7 +101,7 @@ describe('operacoes da carteira', () => {
         const form = screen.getByRole('button', { name: 'Confirmar transferência' }).closest('form');
         fireEvent.submit(form);
         expect(await screen.findByText('Selecione a corretora de destino e informe uma quantidade válida.')).toBeInTheDocument();
-        expect(apiFetch).not.toHaveBeenCalledWith(expect.stringContaining('/transferencias'), expect.anything());
+        expect(http).not.toHaveBeenCalledWith(expect.stringContaining('/transferencias'), expect.anything());
     });
 
     it('registra um aporte na carteira', async () => {
@@ -112,7 +110,7 @@ describe('operacoes da carteira', () => {
         fireEvent.change(within(form).getByRole('spinbutton'), { target: { value: '100' } });
         fireEvent.submit(form);
         expect(await screen.findByText('Aporte registrado com sucesso.')).toBeInTheDocument();
-        expect(apiFetch).toHaveBeenCalledWith('/carteiras/principal/aportes', expect.objectContaining({
+        expect(http).toHaveBeenCalledWith('/carteiras/principal/aportes', expect.objectContaining({
             method: 'POST', body: JSON.stringify({ valor: '100' })
         }));
     });
@@ -125,7 +123,7 @@ describe('operacoes da carteira', () => {
         fireEvent.change(within(form).getByRole('spinbutton'), { target: { value: '2' } });
         fireEvent.submit(form);
         expect(await screen.findByText('Transferência registrada entre as corretoras.')).toBeInTheDocument();
-        expect(apiFetch).toHaveBeenCalledWith('/carteiras/principal/posicoes/p1/transferencias', expect.objectContaining({
+        expect(http).toHaveBeenCalledWith('/carteiras/principal/posicoes/p1/transferencias', expect.objectContaining({
             method: 'POST', body: JSON.stringify({ corretoraDestinoId: 'c2', quantidade: '2' })
         }));
     });
@@ -134,8 +132,8 @@ describe('operacoes da carteira', () => {
         await abrir();
         fireEvent.click(screen.getByRole('button', { name: 'Atualizar cotações' }));
         expect(await screen.findByText('1 posição atualizada com as cotações mais recentes.')).toBeInTheDocument();
-        expect(apiFetch).toHaveBeenCalledWith('/carteiras/principal/atualizar-cotacoes', { method: 'PUT' });
-        await waitFor(() => expect(notifyMarketTickerUpdate).toHaveBeenCalled());
+        expect(http).toHaveBeenCalledWith('/carteiras/principal/atualizar-cotacoes', expect.objectContaining({ method: 'PUT' }));
+        await waitFor(() => expect(marketUpdates).toHaveBeenCalled());
     });
 
     it('filtra posicoes por resultado e mercado', async () => {
@@ -151,8 +149,8 @@ describe('operacoes da carteira', () => {
     });
 
     it('exibe falha da API de compra sem confirmar operacao', async () => {
-        const padrao = apiFetch.getMockImplementation();
-        apiFetch.mockImplementation(async (url, options) => options?.method === 'POST'
+        const padrao = http.getMockImplementation();
+        http.mockImplementation(async (url, options) => options?.method === 'POST'
             ? resposta({ message: 'Saldo insuficiente' }, false) : padrao(url));
         await abrir();
         const form = screen.getByRole('button', { name: 'Comprar' }).closest('form');
@@ -161,7 +159,7 @@ describe('operacoes da carteira', () => {
         fireEvent.change(corretora, { target: { value: 'c2' } });
         fireEvent.submit(form);
         expect(await screen.findByText('Saldo insuficiente')).toBeInTheDocument();
-        expect(notifyMarketTickerUpdate).not.toHaveBeenCalled();
+        expect(marketUpdates).not.toHaveBeenCalled();
     });
 
     it('permite cancelar venda e transferencia', async () => {
@@ -175,19 +173,19 @@ describe('operacoes da carteira', () => {
     });
 
     it('exibe erro quando nao consegue carregar os dados', async () => {
-        apiFetch.mockResolvedValue(resposta({}, false));
+        http.mockResolvedValue(resposta({}, false));
         render(<Carteiras />);
         expect(await screen.findByText('Não foi possível carregar os dados da carteira.')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Comprar' })).toBeDisabled();
     });
 
     it('exibe e filtra o historico por tipo, ativo, corretora e data', async () => {
-        const padrao = apiFetch.getMockImplementation();
+        const padrao = http.getMockImplementation();
         const transacoes = [
             { id: 't1', tipo: 'COMPRA', ticker: 'PETR4', nomeEmpresa: 'Petrobras', corretora: corretoras[0], quantidade: 2, precoUnitario: 30, valorTotal: 60, moeda: 'BRL', dataHora: '2026-01-01T12:00:00' },
             { id: 't2', tipo: 'APORTE', valorTotal: 100, moeda: 'BRL', dataHora: '2026-01-02T12:00:00' }
         ];
-        apiFetch.mockImplementation(async (url) => url.endsWith('/transacoes') ? resposta(transacoes) : padrao(url));
+        http.mockImplementation(async (url) => url.endsWith('/transacoes') ? resposta(transacoes) : padrao(url));
         await abrir();
         const filtros = screen.getByRole('group', { name: 'Filtros de transações' });
         expect(screen.getByText('Saldo em conta')).toBeInTheDocument();
@@ -201,12 +199,12 @@ describe('operacoes da carteira', () => {
     });
 
     it('exibe posicoes negativas e neutras e filtra corretora e ticker', async () => {
-        const padrao = apiFetch.getMockImplementation();
+        const padrao = http.getMockImplementation();
         const posicoes = [
             { ...posicao, lucroPrejuizo: -5, rentabilidadePercentual: -5 },
             { ...posicao, posicaoId: 'p2', ticker: 'IBM', nomeEmpresa: 'IBM', mercado: 'US', moeda: 'USD', lucroPrejuizo: 0, rentabilidadePercentual: 0, corretoraRelacionada: corretoras[1] }
         ];
-        apiFetch.mockImplementation(async (url) => url.endsWith('/posicoes') ? resposta(posicoes) : padrao(url));
+        http.mockImplementation(async (url) => url.endsWith('/posicoes') ? resposta(posicoes) : padrao(url));
         await abrir();
         const filtros = screen.getByRole('group', { name: 'Filtros de posições' });
         fireEvent.change(within(filtros).getByLabelText('Filtrar resultado'), { target: { value: 'neutro' } });

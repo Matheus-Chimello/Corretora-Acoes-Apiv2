@@ -1,2 +1,6 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+/.agents/skills/** text eol=lf
+/skills-lock.json text eol=lf
+/.githooks/* text eol=lf
+/scripts/** text eol=lf

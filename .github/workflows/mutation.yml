@@ -1,0 +1,32 @@
+name: Mutacao dos modulos criticos
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SPRING_PROFILES_ACTIVE: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Mutar autenticacao, usuarios, carteira e propriedades JWT
+        run: bash ./mvnw --batch-mode -Pmutation test-compile org.pitest:pitest-maven:mutationCoverage
+      - name: Publicar relatorios de mutacao
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutacao-backend
+          path: target/pit-reports/
+          if-no-files-found: warn

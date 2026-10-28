@@ -4,6 +4,12 @@ import com.projeto.gestao.service.AutenticacaoService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.web.bind.annotation.GetMapping;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,6 +31,7 @@ public class AutenticacaoController {
     }
 
     @PostMapping("/register")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AutenticacaoService.RespostaAutenticacao> registrar(@RequestBody Map<String, String> payload) {
         String senha = payload.get("password");
         String confirmarSenha = payload.get("confirmPassword");
@@ -37,9 +44,17 @@ public class AutenticacaoController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AutenticacaoService.RespostaAutenticacao> login(@RequestBody Map<String, String> payload) {
-        return ResponseEntity.ok(autenticacaoService.login(payload.get("email"), payload.get("password")));
+    public ResponseEntity<AutenticacaoService.RespostaAutenticacao> login(@Valid @RequestBody LoginRequest payload) {
+        return ResponseEntity.ok(autenticacaoService.login(payload.email(), payload.password()));
     }
+
+    @GetMapping("/me")
+    public Map<String, Object> me(Authentication authentication) {
+        return Map.of("username", authentication.getName(), "authorities", authentication.getAuthorities()
+                .stream().map(GrantedAuthority::getAuthority).toList());
+    }
+
+    public record LoginRequest(@NotBlank String email, @NotBlank String password) { }
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao) {

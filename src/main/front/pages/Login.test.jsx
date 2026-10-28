@@ -1,46 +1,44 @@
 import React from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import Login from './Login';
-import { login, registerUser } from '../services/auth';
+import { AUTH_STORAGE_KEY, getCurrentUser } from '../services/auth';
+import { http } from '../test/http';
 
-const { navigate } = vi.hoisted(() => ({ navigate: vi.fn() }));
-vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }));
-vi.mock('../services/auth', () => ({ login: vi.fn(), registerUser: vi.fn() }));
+const abrir = () => render(<MemoryRouter initialEntries={['/login']}><Routes>
+    <Route path="/login" element={<Login />} />
+    <Route path="/" element={<p>Página inicial</p>} />
+</Routes></MemoryRouter>);
 
 describe('tela de acesso', () => {
-    beforeEach(() => vi.clearAllMocks());
-    afterEach(cleanup);
-
     it('entra com as credenciais e navega para a pagina inicial', async () => {
-        login.mockResolvedValue({ token: 'teste' });
-        const { container } = render(<Login />);
+        http.mockResolvedValue({ ok: true, status: 200, json: async () => ({ token: 'jwt-teste', email: 'pessoa@teste.local' }) });
+        const { container } = abrir();
         fireEvent.change(container.querySelector('[name="email"]'), { target: { value: 'pessoa@teste.local' } });
         fireEvent.change(container.querySelector('[name="password"]'), { target: { value: 'senha123' } });
         fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
-        await waitFor(() => expect(login).toHaveBeenCalledWith('pessoa@teste.local', 'senha123'));
-        expect(navigate).toHaveBeenCalledWith('/', { replace: true });
+        expect(await screen.findByText('Página inicial')).toBeInTheDocument();
+        expect(getCurrentUser()).toEqual({ token: 'jwt-teste', email: 'pessoa@teste.local' });
+        expect(http).toHaveBeenCalledWith('/auth/login', expect.objectContaining({
+            body: JSON.stringify({ email: 'pessoa@teste.local', password: 'senha123' })
+        }));
     });
 
     it('mostra erro de login sem navegar', async () => {
-        login.mockRejectedValue(new Error('Senha invalida'));
-        render(<Login />);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        http.mockResolvedValue({ ok: false, status: 401, json: async () => ({ message: 'Senha invalida' }) });
+        abrir();
         fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
         expect(await screen.findByText('Senha invalida')).toBeInTheDocument();
-        expect(navigate).not.toHaveBeenCalled();
+        expect(screen.queryByText('Página inicial')).not.toBeInTheDocument();
+        expect(getCurrentUser()).toBeNull();
     });
 
-    it('cria conta e volta para o login com o email preenchido', async () => {
-        registerUser.mockResolvedValue({});
-        const { container } = render(<Login />);
-        fireEvent.click(screen.getByRole('button', { name: 'Cadastre-se' }));
-        for (const [name, value] of Object.entries({ name: 'Pessoa', email: 'p@teste.local', password: 'senha123', confirmPassword: 'senha123' })) {
-            fireEvent.change(container.querySelector(`[name="${name}"]`), { target: { value } });
-        }
-        fireEvent.click(screen.getByRole('button', { name: 'Criar conta' }));
-        expect(await screen.findByText('Conta criada com sucesso. Entre para continuar.')).toBeInTheDocument();
-        expect(container.querySelector('[name="email"]')).toHaveValue('p@teste.local');
-        expect(registerUser).toHaveBeenCalledWith({ name: 'Pessoa', email: 'p@teste.local', password: 'senha123', confirmPassword: 'senha123' });
+    it('reserva o cadastro de usuarios a administracao', () => {
+        abrir();
+        expect(screen.queryByRole('button', { name: 'Cadastre-se' })).not.toBeInTheDocument();
+        expect(screen.getByText('Solicite seu acesso ao administrador.')).toBeInTheDocument();
     });
 });

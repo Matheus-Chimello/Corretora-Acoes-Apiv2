@@ -1,12 +1,11 @@
+import { renderWithRouter as render } from '../test/http';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import Corretoras from './Corretoras';
-import { apiFetch } from '../services/api';
+import { http } from '../test/http';
 
-vi.mock('../components/Navbar', () => ({ default: () => null }));
-vi.mock('../services/api', () => ({ apiFetch: vi.fn() }));
 
 const corretora = { cnpj: '123', razaoSocial: 'Corretora A', cidade: 'Sao Paulo', uf: 'SP', validadaNaCvm: true };
 const resposta = (dados, ok = true) => ({ ok, json: async () => dados, text: async () => dados.message });
@@ -16,7 +15,7 @@ describe('corretoras', () => {
     afterEach(cleanup);
 
     it('mostra as corretoras e aplica filtros', async () => {
-        apiFetch.mockResolvedValue(resposta([corretora]));
+        http.mockResolvedValue(resposta([corretora]));
         render(<Corretoras />);
         expect(await screen.findByRole('cell', { name: 'Corretora A' })).toBeInTheDocument();
         fireEvent.change(screen.getByLabelText('Filtrar validação CVM'), { target: { value: 'false' } });
@@ -24,17 +23,17 @@ describe('corretoras', () => {
     });
 
     it('adiciona uma corretora validada', async () => {
-        apiFetch.mockResolvedValueOnce(resposta([])).mockResolvedValueOnce(resposta(corretora));
+        http.mockResolvedValueOnce(resposta([])).mockResolvedValueOnce(resposta(corretora));
         render(<Corretoras />);
         fireEvent.change(screen.getByLabelText('Adicionar por CNPJ:'), { target: { value: '123' } });
         fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
         expect(await screen.findByText('Corretora adicionada com sucesso. CVM validada.')).toBeInTheDocument();
-        expect(apiFetch).toHaveBeenCalledWith('/corretoras', expect.objectContaining({ method: 'POST', body: JSON.stringify({ cnpj: '123' }) }));
+        expect(http).toHaveBeenCalledWith('/corretoras', expect.objectContaining({ method: 'POST', body: JSON.stringify({ cnpj: '123' }) }));
         expect(within(screen.getByRole('table')).getByText('Corretora A')).toBeInTheDocument();
     });
 
     it('mostra o erro do servidor sem adicionar a corretora', async () => {
-        apiFetch.mockResolvedValueOnce(resposta([])).mockResolvedValueOnce(resposta({ message: 'CNPJ não validado' }, false));
+        http.mockResolvedValueOnce(resposta([])).mockResolvedValueOnce(resposta({ message: 'CNPJ não validado' }, false));
         const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
         render(<Corretoras />);
         fireEvent.change(screen.getByLabelText('Adicionar por CNPJ:'), { target: { value: '123' } });
@@ -46,7 +45,7 @@ describe('corretoras', () => {
 
     it('ordena corretoras e filtra por campos de contato', async () => {
         const outra = { cnpj: '456', razaoSocial: 'Corretora B', telefone: '9999', cidade: 'Campinas', uf: 'SP', validadaNaCvm: false };
-        apiFetch.mockResolvedValue(resposta({ corretoras: [outra, corretora] }));
+        http.mockResolvedValue(resposta({ corretoras: [outra, corretora] }));
         render(<Corretoras />);
         await screen.findByRole('cell', { name: 'Corretora A' });
         fireEvent.click(screen.getByRole('columnheader', { name: 'Razão Social' }));
@@ -62,7 +61,7 @@ describe('corretoras', () => {
     });
 
     it('mostra aviso se o servidor retornar uma corretora nao validada', async () => {
-        apiFetch.mockResolvedValueOnce(resposta([])).mockResolvedValueOnce(resposta({ ...corretora, validadaNaCvm: false }));
+        http.mockResolvedValueOnce(resposta([])).mockResolvedValueOnce(resposta({ ...corretora, validadaNaCvm: false }));
         render(<Corretoras />);
         fireEvent.change(screen.getByLabelText('Adicionar por CNPJ:'), { target: { value: '123' } });
         fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
@@ -71,11 +70,11 @@ describe('corretoras', () => {
 
     it('trata erro ao carregar corretoras e resposta sem lista', async () => {
         const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
-        apiFetch.mockResolvedValueOnce(resposta({}, false));
+        http.mockResolvedValueOnce(resposta({}, false));
         const primeira = render(<Corretoras />);
         await vi.waitFor(() => expect(erro).toHaveBeenCalled());
         primeira.unmount();
-        apiFetch.mockResolvedValueOnce(resposta({}));
+        http.mockResolvedValueOnce(resposta({}));
         render(<Corretoras />);
         expect(await screen.findByText('Nenhuma corretora cadastrada no momento.')).toBeInTheDocument();
         erro.mockRestore();

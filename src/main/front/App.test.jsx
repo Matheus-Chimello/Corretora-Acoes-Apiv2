@@ -1,41 +1,38 @@
 import React from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import App from './App';
-import { isAuthenticated } from './services/auth';
-
-vi.mock('./services/auth', () => ({ isAuthenticated: vi.fn() }));
-vi.mock('./components/MarketTicker', () => ({ default: () => null }));
-vi.mock('./pages/Login', () => ({ default: () => <p>Login</p> }));
-vi.mock('./pages/Dashboard', () => ({ default: () => <p>Dashboard</p> }));
-vi.mock('./pages/Carteiras', () => ({ default: () => <p>Carteira protegida</p> }));
-vi.mock('./pages/Corretoras', () => ({ default: () => <p>Corretoras</p> }));
-vi.mock('./pages/Acoes', () => ({ default: () => <p>Acoes</p> }));
+import { AUTH_STORAGE_KEY } from './services/auth';
+import { http } from './test/http';
 
 describe('protecao de rotas', () => {
-    beforeEach(() => vi.clearAllMocks());
-    afterEach(cleanup);
+    beforeEach(() => {
+        http.mockImplementation(async (path) => ({ ok: true, json: async () => {
+            if (path === '/carteiras/principal') return { id: 1, saldoEmConta: 0 };
+            if (path.endsWith('/stats')) return { corretorasCount: 0 };
+            return [];
+        } }));
+    });
 
     it('redireciona usuarios nao autenticados para login', async () => {
         window.location.hash = '#/carteiras';
-        isAuthenticated.mockReturnValue(false);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
         render(<App />);
-        expect(await screen.findByText('Login')).toBeInTheDocument();
-        expect(screen.queryByText('Carteira protegida')).not.toBeInTheDocument();
+        expect(await screen.findByRole('heading', { name: 'Boas-vindas de volta' })).toBeInTheDocument();
+        expect(screen.queryByRole('heading', { name: 'Minha Carteira' })).not.toBeInTheDocument();
+        expect(http).not.toHaveBeenCalled();
     });
 
     it('permite acesso autenticado a carteira', async () => {
         window.location.hash = '#/carteiras';
-        isAuthenticated.mockReturnValue(true);
         render(<App />);
-        expect(await screen.findByText('Carteira protegida')).toBeInTheDocument();
+        expect(await screen.findByRole('heading', { name: 'Minha Carteira' })).toBeInTheDocument();
     });
 
     it('redireciona usuario autenticado do login para o dashboard', async () => {
         window.location.hash = '#/login';
-        isAuthenticated.mockReturnValue(true);
         render(<App />);
-        expect(await screen.findByText('Dashboard')).toBeInTheDocument();
+        expect(await screen.findByRole('heading', { name: 'Visão geral' })).toBeInTheDocument();
     });
 });

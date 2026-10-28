@@ -4,3 +4,12 @@
 /src/main/front/vitest.config.js @Matheus-Chimello
 /.github/workflows/ @Matheus-Chimello
 /AGENTS.md @Matheus-Chimello
+/.agents/skills/ @Matheus-Chimello
+/skills-lock.json @Matheus-Chimello
+/scripts/ @Matheus-Chimello
+/.githooks/ @Matheus-Chimello
+/.github/CODEOWNERS @Matheus-Chimello
+/.gitattributes @Matheus-Chimello
+/.github/rulesets/ @Matheus-Chimello
+/src/test/ @Matheus-Chimello
+/src/main/front/**/*.test.* @Matheus-Chimello

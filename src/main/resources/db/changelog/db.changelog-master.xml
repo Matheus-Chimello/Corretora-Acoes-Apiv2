@@ -22,4 +22,5 @@
     <include file="changes/008-remover-unicidade-global-acoes.xml"
              relativeToChangelogFile="true"/>
 
+    <include file="changes/009-autenticacao-jwt.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

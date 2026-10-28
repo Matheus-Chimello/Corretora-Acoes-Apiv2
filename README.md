@@ -4,7 +4,6 @@ Este projeto consiste em uma aplicação para gestão de ações, corretoras e c
 
 A aplicação integra fontes externas para consultar dados de mercado e validar informações de corretoras, enriquecendo os cadastros locais e ajudando a manter a integridade das informações utilizadas na carteira.
 
-
 ## 🎯 Objetivo
 
 Construir uma solução de gestão de investimentos que permita:

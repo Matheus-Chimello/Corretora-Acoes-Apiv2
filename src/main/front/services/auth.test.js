@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AUTH_STORAGE_KEY, getCurrentUser, isAuthenticated, login, logout, registerUser } from './auth';
-import { notifyMarketTickerUpdate } from './marketTicker';
+import { MARKET_TICKER_UPDATED_EVENT } from './marketTicker';
 
-vi.mock('./marketTicker', () => ({ notifyMarketTickerUpdate: vi.fn() }));
+const updates = [];
+const observeUpdate = (event) => updates.push(event.detail);
 const resposta = (status, body) => ({ status, ok: status >= 200 && status < 300, json: async () => body });
 
 describe('autenticacao', () => {
@@ -10,8 +11,13 @@ describe('autenticacao', () => {
         localStorage.clear();
         vi.stubGlobal('fetch', vi.fn());
         vi.clearAllMocks();
+        updates.length = 0;
+        window.addEventListener(MARKET_TICKER_UPDATED_EVENT, observeUpdate);
     });
-    afterEach(() => vi.unstubAllGlobals());
+    afterEach(() => {
+        window.removeEventListener(MARKET_TICKER_UPDATED_EVENT, observeUpdate);
+        vi.unstubAllGlobals();
+    });
 
     it('guarda a sessao recebida no login e atualiza as cotacoes', async () => {
         const usuario = { nome: 'Pessoa', token: 'token-teste' };
@@ -19,7 +25,7 @@ describe('autenticacao', () => {
         expect(await login('pessoa@teste.local', 'senha')).toEqual(usuario);
         expect(getCurrentUser()).toEqual(usuario);
         expect(isAuthenticated()).toBe(true);
-        expect(notifyMarketTickerUpdate).toHaveBeenCalledWith({ refresh: true });
+        expect(updates).toEqual([{ refresh: true }]);
     });
 
     it('retorna erro de credenciais sem salvar sessao', async () => {
@@ -28,23 +34,22 @@ describe('autenticacao', () => {
         expect(isAuthenticated()).toBe(false);
     });
 
-    it('migra usuario legado somente com credenciais correspondentes', async () => {
+    it('recusa credenciais sem tentar cadastro publico de usuario legado', async () => {
         localStorage.setItem('gestaoFinanceiraRegisteredUsers', JSON.stringify([
             { name: 'Pessoa', email: 'PESSOA@teste.local', password: 'senha' }
         ]));
-        fetch.mockResolvedValueOnce(resposta(401, {}))
-            .mockResolvedValueOnce(resposta(201, {}))
-            .mockResolvedValueOnce(resposta(200, { token: 'novo-token' }));
-        await login('pessoa@teste.local', 'senha');
-        expect(fetch).toHaveBeenCalledTimes(3);
-        expect(JSON.parse(localStorage.getItem('gestaoFinanceiraRegisteredUsers'))).toEqual([]);
-        expect(getCurrentUser().token).toBe('novo-token');
+        fetch.mockResolvedValue(resposta(401, {}));
+        await expect(login('pessoa@teste.local', 'senha')).rejects.toThrow('Email ou senha invalidos.');
+        expect(fetch).toHaveBeenCalledTimes(1);
+        expect(getCurrentUser()).toBeNull();
     });
 
     it('registra uma conta e informa erros recebidos da API', async () => {
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token: 'token-admin', role: 'ADMIN' }));
         const dados = { name: 'Pessoa', email: 'p@teste.local', password: 'senha', confirmPassword: 'senha' };
         fetch.mockResolvedValueOnce(resposta(201, { email: dados.email }));
         expect(await registerUser(dados)).toEqual({ email: dados.email });
+        expect(fetch.mock.calls[0][1].headers.get('Authorization')).toBe('Bearer token-admin');
         fetch.mockResolvedValueOnce(resposta(400, { detail: 'Email invalido' }));
         await expect(registerUser(dados)).rejects.toThrow('Email invalido');
     });
@@ -57,8 +62,6 @@ describe('autenticacao', () => {
         fetch.mockResolvedValue(resposta(200, {}));
         logout();
         expect(getCurrentUser()).toBeNull();
-        expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/auth/logout'), expect.objectContaining({
-            headers: { Authorization: 'Bearer token-teste' }
-        }));
+        expect(fetch).not.toHaveBeenCalled();
     });
 });

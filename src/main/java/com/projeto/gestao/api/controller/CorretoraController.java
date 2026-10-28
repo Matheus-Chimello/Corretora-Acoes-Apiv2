@@ -6,6 +6,7 @@ import com.projeto.gestao.domain.model.Usuario;
 import com.projeto.gestao.service.AutenticacaoService;
 import com.projeto.gestao.service.CorretoraService;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +36,7 @@ public class CorretoraController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CorretoraResponse> cadastrarCorretora(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @Valid @RequestBody CorretoraRequest payload

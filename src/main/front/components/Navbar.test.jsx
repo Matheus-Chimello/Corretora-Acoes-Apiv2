@@ -1,16 +1,14 @@
 import React from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import Navbar from './Navbar';
-import { getCurrentUser, logout } from '../services/auth';
-
-vi.mock('../services/auth', () => ({ getCurrentUser: vi.fn(), logout: vi.fn() }));
+import { AUTH_STORAGE_KEY, isAuthenticated } from '../services/auth';
+import '../test/http';
 
 describe('menu lateral', () => {
-    beforeEach(() => { localStorage.clear(); vi.clearAllMocks(); getCurrentUser.mockReturnValue({ name: 'Matheus' }); });
-    afterEach(cleanup);
+    beforeEach(() => localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token: 'jwt-teste', name: 'Matheus' })));
 
     it('recolhe e expande o menu e salva a preferencia', () => {
         render(<MemoryRouter><Navbar title="Carteira" /></MemoryRouter>);
@@ -25,7 +23,7 @@ describe('menu lateral', () => {
         render(<MemoryRouter initialEntries={['/']}><Routes><Route path="/" element={<Navbar title="Carteira" />} /><Route path="/login" element={<p>Tela de login</p>} /></Routes></MemoryRouter>);
         expect(screen.getByText('Matheus')).toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: 'Sair' }));
-        expect(logout).toHaveBeenCalled();
+        expect(isAuthenticated()).toBe(false);
         expect(screen.getByText('Tela de login')).toBeInTheDocument();
     });
 });

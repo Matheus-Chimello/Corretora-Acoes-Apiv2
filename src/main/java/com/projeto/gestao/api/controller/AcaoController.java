@@ -6,6 +6,7 @@ import com.projeto.gestao.domain.model.Usuario;
 import com.projeto.gestao.service.AcaoService;
 import com.projeto.gestao.service.AutenticacaoService;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -39,6 +40,7 @@ public class AcaoController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AcaoResponse> cadastrarAcao(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @Valid @RequestBody AcaoRequest payload
@@ -79,6 +81,7 @@ public class AcaoController {
     }
 
     @PutMapping("/{id}/atualizar-cotacao")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AcaoResponse> atualizarCotacao(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @PathVariable UUID id
@@ -88,6 +91,7 @@ public class AcaoController {
     }
 
     @PutMapping("/atualizar-cotacoes")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<AcaoResponse>> atualizarCotacoesDoCatalogo(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
     ) {

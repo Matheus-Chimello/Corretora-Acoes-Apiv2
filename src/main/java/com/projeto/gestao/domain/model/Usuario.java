@@ -34,9 +34,8 @@ public class Usuario {
     @Column(nullable = false)
     private PapelUsuario papel;
 
-    @JsonIgnore
-    @Column(unique = true)
-    private String tokenSessao;
+    @Column(nullable = false)
+    private Boolean ativo = true;
 
     public UUID getId() {
         return id;
@@ -78,11 +77,11 @@ public class Usuario {
         this.papel = papel;
     }
 
-    public String getTokenSessao() {
-        return tokenSessao;
+    public Boolean getAtivo() {
+        return ativo;
     }
 
-    public void setTokenSessao(String tokenSessao) {
-        this.tokenSessao = tokenSessao;
+    public void setAtivo(Boolean ativo) {
+        this.ativo = ativo;
     }
 }

@@ -8,7 +8,37 @@ permissions:
   contents: read
 
 jobs:
+  coverage-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/main/front/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci --prefix src/main/front
+      - name: Testar protecao da politica de cobertura
+        run: python -m unittest discover -s scripts/tests -v
+      - name: Verificar skills fixadas
+        run: node scripts/verify_skills_lock.mjs
+      - name: Impedir reducao dos limites e novas exclusoes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -n "$BASE_SHA" ]; then
+            python scripts/check_coverage_policy.py --base-ref "$BASE_SHA"
+          else
+            python scripts/check_coverage_policy.py
+          fi
+
   backend:
+    needs: coverage-policy
     runs-on: ubuntu-latest
     env:
       SPRING_PROFILES_ACTIVE: test
@@ -40,6 +70,7 @@ jobs:
         run: diff-cover target/site/jacoco/jacoco.xml --compare-branch="origin/$BASE_REF" --fail-under=80
 
   frontend:
+    needs: coverage-policy
     runs-on: ubuntu-latest
     defaults:
       run:

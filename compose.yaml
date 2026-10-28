@@ -35,6 +35,11 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       BRAPI_TOKEN: ${BRAPI_TOKEN:-}
       ALPHAVANTAGE_API_KEY: ${ALPHAVANTAGE_API_KEY:-}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-60m}
+      JWT_ISSUER: ${JWT_ISSUER:-gestao-acoes-corretoras}
+      APP_ADMIN_USERNAME: ${APP_ADMIN_USERNAME:-admin@corretora.local}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD}
     ports:
       - "${BACKEND_PORT:-8081}:8080"
 

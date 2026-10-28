@@ -15,7 +15,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
+import com.projeto.gestao.repository.AcaoRepository;
+import com.projeto.gestao.domain.port.CotacaoAcaoPort;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -48,9 +49,11 @@ class CarteiraServiceTest {
     private TransacaoCarteiraRepository transacaoCarteiraRepository;
 
     @Mock
-    private AcaoService acaoService;
+    private AcaoRepository acaoRepository;
 
-    @InjectMocks
+    @Mock
+    private CotacaoAcaoPort cotacaoAcaoPort;
+
     private CarteiraService carteiraService;
 
     private Usuario usuario;
@@ -58,6 +61,8 @@ class CarteiraServiceTest {
 
     @BeforeEach
     void setUp() {
+        var acaoService = new AcaoService(acaoRepository, cotacaoAcaoPort);
+        carteiraService = new CarteiraService(carteiraRepository, posicaoCarteiraRepository, acaoService, corretoraRepository, transacaoCarteiraRepository);
         usuario = new Usuario();
         usuario.setId(UUID.randomUUID());
         carteira = carteira(new BigDecimal("100.00"));
@@ -85,7 +90,7 @@ class CarteiraServiceTest {
         Corretora corretora = corretora(corretoraId);
         Acao acao = acao(acaoId, "PETR4", "10.00");
         when(carteiraRepository.findFirstByUsuarioId(usuario.getId())).thenReturn(Optional.of(carteira));
-        when(acaoService.atualizarCotacao(usuario, acaoId)).thenReturn(acao);
+        prepararCotacao(acao);
         when(corretoraRepository.findById(corretoraId)).thenReturn(Optional.of(corretora));
         when(posicaoCarteiraRepository.findByCarteiraIdAndAcaoIdAndCorretoraId(7L, acaoId, corretoraId)).thenReturn(Optional.empty());
         when(posicaoCarteiraRepository.save(any(PosicaoCarteira.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -111,7 +116,7 @@ class CarteiraServiceTest {
         Corretora corretora = corretora(corretoraId);
         Acao acao = acao(acaoId, "PETR4", "10.00");
         when(carteiraRepository.findFirstByUsuarioId(usuario.getId())).thenReturn(Optional.of(carteira));
-        when(acaoService.buscarPorId(usuario, acaoId)).thenReturn(Optional.of(acao));
+        when(acaoRepository.findByIdAndUsuarioId(acaoId, usuario.getId())).thenReturn(Optional.of(acao));
         when(corretoraRepository.findById(corretoraId)).thenReturn(Optional.of(corretora));
         when(posicaoCarteiraRepository.findByCarteiraIdAndAcaoIdAndCorretoraId(7L, acaoId, corretoraId)).thenReturn(Optional.empty());
         when(posicaoCarteiraRepository.save(any(PosicaoCarteira.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -144,7 +149,7 @@ class CarteiraServiceTest {
         Corretora primeiraCorretora = corretora(primeiraCorretoraId);
         Corretora segundaCorretora = corretora(segundaCorretoraId);
         when(carteiraRepository.findFirstByUsuarioId(usuario.getId())).thenReturn(Optional.of(carteira));
-        when(acaoService.atualizarCotacao(usuario, acaoId)).thenReturn(acao);
+        prepararCotacao(acao);
         when(corretoraRepository.findById(primeiraCorretoraId)).thenReturn(Optional.of(primeiraCorretora));
         when(corretoraRepository.findById(segundaCorretoraId)).thenReturn(Optional.of(segundaCorretora));
         when(posicaoCarteiraRepository.findByCarteiraIdAndAcaoIdAndCorretoraId(7L, acaoId, primeiraCorretoraId)).thenReturn(Optional.empty());
@@ -166,7 +171,7 @@ class CarteiraServiceTest {
     void naoDeveComprarAcaoBrasileiraComQuantidadeFracionada() {
         UUID acaoId = UUID.randomUUID();
         when(carteiraRepository.findFirstByUsuarioId(usuario.getId())).thenReturn(Optional.of(carteira));
-        when(acaoService.atualizarCotacao(usuario, acaoId)).thenReturn(acao(acaoId, "PETR4", "10.00"));
+        prepararCotacao(acao(acaoId, "PETR4", "10.00"));
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -260,7 +265,7 @@ class CarteiraServiceTest {
         posicao.setPrecoMedio(new BigDecimal("10.00"));
 
         when(carteiraRepository.findFirstByUsuarioId(usuario.getId())).thenReturn(Optional.of(carteira));
-        when(acaoService.atualizarCotacao(usuario, acaoId)).thenReturn(acao);
+        prepararCotacao(acao);
         when(corretoraRepository.findById(corretoraId)).thenReturn(Optional.of(corretora));
         when(posicaoCarteiraRepository.findByCarteiraIdAndAcaoIdAndCorretoraId(7L, acaoId, corretoraId)).thenReturn(Optional.of(posicao));
         when(posicaoCarteiraRepository.save(posicao)).thenReturn(posicao);
@@ -287,14 +292,14 @@ class CarteiraServiceTest {
 
         when(carteiraRepository.findFirstByUsuarioId(usuario.getId())).thenReturn(Optional.of(carteira));
         when(posicaoCarteiraRepository.findAllByCarteiraId(7L)).thenReturn(List.of(posicao));
-        when(acaoService.atualizarCotacao(usuario, acaoId)).thenReturn(acao);
+        prepararCotacao(acao);
         when(carteiraRepository.save(carteira)).thenReturn(carteira);
 
         List<PosicaoCarteira> resultado = carteiraService.atualizarCotacoesDasPosicoes(usuario);
 
         assertEquals(List.of(posicao), resultado);
         assertEquals(0, new BigDecimal("30.00").compareTo(carteira.getSaldoAcao()));
-        verify(acaoService).atualizarCotacao(usuario, acaoId);
+        assertEquals(new BigDecimal("15.00"), resultado.get(0).getAcao().getCotacaoAtual());
     }
 
     @Test
@@ -303,7 +308,7 @@ class CarteiraServiceTest {
         UUID acaoId = UUID.randomUUID();
         UUID corretoraId = UUID.randomUUID();
         when(carteiraRepository.findFirstByUsuarioId(usuario.getId())).thenReturn(Optional.of(carteira));
-        when(acaoService.atualizarCotacao(usuario, acaoId)).thenReturn(acao(acaoId, "PETR4", "60.00"));
+        prepararCotacao(acao(acaoId, "PETR4", "60.00"));
         when(corretoraRepository.findById(corretoraId)).thenReturn(Optional.of(corretora(corretoraId)));
 
         assertThrows(
@@ -427,6 +432,12 @@ class CarteiraServiceTest {
         return corretora;
     }
 
+    private void prepararCotacao(Acao acao) {
+        when(acaoRepository.findByIdAndUsuarioId(acao.getId(), usuario.getId())).thenReturn(Optional.of(acao));
+        when(cotacaoAcaoPort.getCotacao(acao.getTicker(), acao.getMercado())).thenReturn(
+                new CotacaoAcaoPort.CotacaoInfo(acao.getTicker(), "Empresa de teste", "BRL", acao.getCotacaoAtual()));
+        when(acaoRepository.save(acao)).thenReturn(acao);
+    }
     private Acao acao(UUID id, String ticker, String cotacao) {
         Acao acao = new Acao();
         acao.setId(id);

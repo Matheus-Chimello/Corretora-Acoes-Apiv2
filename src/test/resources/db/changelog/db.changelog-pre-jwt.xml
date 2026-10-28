@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <include file="db/changelog/changes/001-criar-estrutura-inicial.xml"/>
+    <include file="db/changelog/changes/002-inserir-catalogo-demonstracao.xml"/>
+    <include file="db/changelog/changes/003-mover-corretora-e-registrar-transacoes.xml"/>
+    <include file="db/changelog/changes/004-registrar-aportes-na-carteira.xml"/>
+    <include file="db/changelog/changes/005-remover-unicidade-legada-posicoes.xml"/>
+    <include file="db/changelog/changes/006-ampliar-tipo-transacao.xml"/>
+    <include file="db/changelog/changes/007-isolar-catalogo-por-usuario.xml"/>
+    <include file="db/changelog/changes/008-remover-unicidade-global-acoes.xml"/>
+</databaseChangeLog>

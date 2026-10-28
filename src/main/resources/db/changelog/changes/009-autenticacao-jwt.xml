@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="017-adicionar-situacao-usuario" author="curso">
+        <preConditions onFail="MARK_RAN" onError="HALT">
+            <not><columnExists tableName="usuarios" columnName="ativo"/></not>
+        </preConditions>
+        <addColumn tableName="usuarios">
+            <column name="ativo" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <rollback><dropColumn tableName="usuarios" columnName="ativo"/></rollback>
+    </changeSet>
+    <changeSet id="018-remover-token-sessao" author="curso">
+        <dropUniqueConstraint tableName="usuarios" constraintName="uk_usuarios_token_sessao"/>
+        <dropColumn tableName="usuarios" columnName="token_sessao"/>
+        <rollback>
+            <addColumn tableName="usuarios"><column name="token_sessao" type="VARCHAR(255)"/></addColumn>
+            <addUniqueConstraint tableName="usuarios" columnNames="token_sessao" constraintName="uk_usuarios_token_sessao"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

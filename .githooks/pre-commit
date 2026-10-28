@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+cd "$(git rev-parse --show-toplevel)"
 export SPRING_PROFILES_ACTIVE=test
+node scripts/verify_skills_lock.mjs
 sh ./mvnw verify
 (cd src/main/front && npm run test:coverage)

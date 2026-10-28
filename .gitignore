@@ -4,6 +4,7 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 node_modules/
+__pycache__/
 src/main/front/dist/
 src/main/front/coverage/
 

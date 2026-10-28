@@ -4,15 +4,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter } from 'react-router-dom';
 import Dashboard from './Dashboard';
-import { apiFetch } from '../services/api';
+import { http } from '../test/http';
 
-vi.mock('../components/Navbar', () => ({ default: () => null }));
-vi.mock('../components/PortfolioOverview', () => ({ default: ({ positions }) => <div>Resumo: {positions.length}</div> }));
-vi.mock('../services/api', () => ({ apiFetch: vi.fn() }));
-vi.mock('recharts', () => {
-    const Wrapper = ({ children }) => <div>{children}</div>;
-    return { Bar: Wrapper, BarChart: Wrapper, Cell: Wrapper, Legend: Wrapper, Pie: Wrapper, PieChart: Wrapper, ResponsiveContainer: Wrapper, Tooltip: Wrapper, XAxis: Wrapper, YAxis: Wrapper };
-});
 
 describe('visao geral', () => {
     beforeEach(() => vi.clearAllMocks());
@@ -26,16 +19,16 @@ describe('visao geral', () => {
             '/carteiras/principal': { saldoEmConta: 100 },
             '/carteiras/principal/transacoes': []
         };
-        apiFetch.mockImplementation(async (url) => ({ ok: true, json: async () => respostas[url] }));
+        http.mockImplementation(async (url) => ({ ok: true, json: async () => respostas[url] }));
         render(<MemoryRouter><Dashboard /></MemoryRouter>);
         expect(await screen.findByText('Petrobras')).toBeInTheDocument();
-        expect(screen.getByText('Resumo: 1')).toBeInTheDocument();
+        expect(screen.getByRole('region', { name: 'Resumo financeiro da carteira' })).toBeInTheDocument();
         expect(screen.getByText('R$ 20,00 (+20,00%)')).toBeInTheDocument();
         expect(screen.getByLabelText('100.0% da carteira')).toBeInTheDocument();
     });
 
     it('mostra os estados vazios quando nao ha posicoes ou acoes', async () => {
-        apiFetch.mockImplementation(async (url) => ({ ok: true, json: async () => url.endsWith('stats') ? { corretorasCount: 0 } : url === '/carteiras/principal' ? { saldoEmConta: 0 } : [] }));
+        http.mockImplementation(async (url) => ({ ok: true, json: async () => url.endsWith('stats') ? { corretorasCount: 0 } : url === '/carteiras/principal' ? { saldoEmConta: 0 } : [] }));
         render(<MemoryRouter><Dashboard /></MemoryRouter>);
         expect(await screen.findByText('Nenhuma posição disponível para exibição.')).toBeInTheDocument();
         expect(screen.getByText('Cadastre ações para visualizar as cotações.')).toBeInTheDocument();
@@ -49,7 +42,7 @@ describe('visao geral', () => {
             '/carteiras/principal': null,
             '/carteiras/principal/transacoes': null
         };
-        apiFetch.mockImplementation(async (url) => ({ ok: true, json: async () => respostas[url] }));
+        http.mockImplementation(async (url) => ({ ok: true, json: async () => respostas[url] }));
         render(<MemoryRouter><Dashboard /></MemoryRouter>);
         expect(await screen.findByText('Ação cadastrada')).toBeInTheDocument();
         expect(screen.getByText('-US$ 10,00 (-5,00%)')).toHaveClass('performance-negative');
@@ -58,7 +51,7 @@ describe('visao geral', () => {
 
     it('mantem o painel vazio quando uma requisicao falha', async () => {
         const erro = vi.spyOn(console, 'error').mockImplementation(() => {});
-        apiFetch.mockResolvedValue({ ok: false });
+        http.mockResolvedValue({ ok: false });
         render(<MemoryRouter><Dashboard /></MemoryRouter>);
         await vi.waitFor(() => expect(erro).toHaveBeenCalled());
         expect(screen.getByText('Nenhuma posição disponível para exibição.')).toBeInTheDocument();

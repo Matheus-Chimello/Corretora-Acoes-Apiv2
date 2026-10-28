@@ -9,7 +9,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import com.projeto.gestao.config.JwtProperties;
+import com.projeto.gestao.config.SecurityConfig;
+import org.springframework.security.authentication.*;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.core.context.SecurityContextHolder;
+import java.time.Duration;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -22,7 +30,6 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -39,8 +46,22 @@ class AutenticacaoServiceTest {
     @Mock
     private CarteiraRepository carteiraRepository;
 
-    @InjectMocks
     private AutenticacaoService autenticacaoService;
+
+    @BeforeEach
+    void configurarSeguranca() {
+        var encoder = new BCryptPasswordEncoder();
+        var provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(new UsuarioDetailsService(usuarioRepository));
+        provider.setPasswordEncoder(encoder);
+        var properties = new JwtProperties("chave-de-testes-com-pelo-menos-32-bytes", Duration.ofHours(1), "teste");
+        var config = new SecurityConfig();
+        autenticacaoService = new AutenticacaoService(usuarioRepository, carteiraRepository, encoder,
+                new ProviderManager(provider), config.jwtEncoder(config.jwtSecretKey(properties)), properties);
+    }
+
+    @AfterEach
+    void limparContexto() { SecurityContextHolder.clearContext(); }
 
     @Test
     @DisplayName("Deve criar uma carteira zerada ao registrar uma conta")
@@ -53,7 +74,7 @@ class AutenticacaoServiceTest {
         });
         when(carteiraRepository.save(any(Carteira.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Usuario usuario = autenticacaoService.registrar("Nova Conta", "nova@teste.local", "senha123");
+        Usuario usuario = autenticacaoService.registrar("Nova Conta", "nova@teste.local", "senha1234");
 
         ArgumentCaptor<Carteira> carteiraCaptor = ArgumentCaptor.forClass(Carteira.class);
         verify(carteiraRepository).save(carteiraCaptor.capture());
@@ -69,22 +90,23 @@ class AutenticacaoServiceTest {
         when(usuarioRepository.findByEmailIgnoreCase("nova@teste.local")).thenReturn(Optional.empty());
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        Usuario usuario = autenticacaoService.registrar("  Nova Conta  ", " NOVA@TESTE.LOCAL ", "senha123");
+        Usuario usuario = autenticacaoService.registrar("  Nova Conta  ", " NOVA@TESTE.LOCAL ", "senha1234");
 
         assertEquals("Nova Conta", usuario.getNome());
         assertEquals("nova@teste.local", usuario.getEmail());
         assertEquals(PapelUsuario.USER, usuario.getPapel());
-        assertTrue(new BCryptPasswordEncoder().matches("senha123", usuario.getSenhaHash()));
+        assertTrue(new BCryptPasswordEncoder().matches("senha1234", usuario.getSenhaHash()));
     }
 
     @Test
     void deveRecusarDadosInvalidosSemCriarConta() {
         for (String[] dados : new String[][] {
-                {"", "a@teste.local", "senha123"},
-                {"Nome", "", "senha123"},
+                {"", "a@teste.local", "senha1234"},
+                {"Nome", "", "senha1234"},
                 {"Nome", "a@teste.local", ""},
-                {"Nome", "email-invalido", "senha123"},
-                {"Nome", "a@teste.local", "12345"}
+                {"Nome", "email-invalido", "senha1234"},
+                {"Nome", "a@teste.local", "1234567"},
+                {"Nome", "a@teste.local", "s".repeat(73)}
         }) {
             ResponseStatusException erro = assertThrows(ResponseStatusException.class,
                     () -> autenticacaoService.registrar(dados[0], dados[1], dados[2]));
@@ -100,55 +122,65 @@ class AutenticacaoServiceTest {
     void deveRecusarEmailJaCadastrado() {
         when(usuarioRepository.findByEmailIgnoreCase("a@teste.local")).thenReturn(Optional.of(new Usuario()));
         ResponseStatusException erro = assertThrows(ResponseStatusException.class,
-                () -> autenticacaoService.registrar("Nome", "A@teste.local", "senha123"));
+                () -> autenticacaoService.registrar("Nome", "A@teste.local", "senha1234"));
         assertEquals(HttpStatus.CONFLICT, erro.getStatusCode());
         verify(carteiraRepository, never()).save(any());
     }
 
     @Test
-    void deveAutenticarEEncerrarSessao() {
+    void deveAutenticarSemPersistirTokenEEncerrarSessaoNoCliente() {
         Usuario usuario = new Usuario();
         usuario.setNome("Pessoa");
         usuario.setEmail("pessoa@teste.local");
         usuario.setPapel(PapelUsuario.USER);
-        usuario.setSenhaHash(new BCryptPasswordEncoder().encode("senha123"));
+        usuario.setSenhaHash(new BCryptPasswordEncoder().encode("senha1234"));
         when(usuarioRepository.findByEmailIgnoreCase("pessoa@teste.local")).thenReturn(Optional.of(usuario));
 
-        var resposta = autenticacaoService.login(" PESSOA@TESTE.LOCAL ", "senha123");
+        var resposta = autenticacaoService.login(" PESSOA@TESTE.LOCAL ", "senha1234");
         assertNotNull(resposta.token());
         assertEquals("Pessoa", resposta.nome());
         assertEquals("USER", resposta.role());
-        when(usuarioRepository.findByTokenSessao(resposta.token())).thenReturn(Optional.of(usuario));
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(usuario.getEmail(), null, java.util.List.of()));
         assertEquals(usuario, autenticacaoService.obterUsuarioAutenticado("Bearer " + resposta.token()));
 
         autenticacaoService.encerrarSessao("Bearer " + resposta.token());
-        assertNull(usuario.getTokenSessao());
+        verify(usuarioRepository, never()).save(usuario);
     }
 
     @Test
-    void deveRecusarCredenciaisEAutorizacoesInvalidas() {
+    void deveRecusarCredenciaisInvalidas() {
         when(usuarioRepository.findByEmailIgnoreCase("ausente@teste.local")).thenReturn(Optional.empty());
-        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ResponseStatusException.class,
-                () -> autenticacaoService.login("ausente@teste.local", "senha123")).getStatusCode());
+        assertThrows(AuthenticationException.class,
+                () -> autenticacaoService.login("ausente@teste.local", "senha1234"));
 
         Usuario usuario = new Usuario();
-        usuario.setSenhaHash(new BCryptPasswordEncoder().encode("senha123"));
+        usuario.setEmail("pessoa@teste.local");
+        usuario.setPapel(PapelUsuario.USER);
+        usuario.setSenhaHash(new BCryptPasswordEncoder().encode("senha1234"));
         when(usuarioRepository.findByEmailIgnoreCase("pessoa@teste.local")).thenReturn(Optional.of(usuario));
+        assertThrows(AuthenticationException.class,
+                () -> autenticacaoService.login("pessoa@teste.local", "errada"));
+        assertThrows(AuthenticationException.class, () -> autenticacaoService.login("pessoa@teste.local", null));
+    }
+
+    @Test
+    void deveExigirIdentidadeAutenticadaEExistente() {
         assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ResponseStatusException.class,
-                () -> autenticacaoService.login("pessoa@teste.local", "errada")).getStatusCode());
-        assertThrows(ResponseStatusException.class, () -> autenticacaoService.login("pessoa@teste.local", null));
-        assertThrows(ResponseStatusException.class, () -> autenticacaoService.obterUsuarioAutenticado(null));
-        assertThrows(ResponseStatusException.class, () -> autenticacaoService.obterUsuarioAutenticado("Basic token"));
-        assertThrows(ResponseStatusException.class, () -> autenticacaoService.obterUsuarioAutenticado("Bearer   "));
-        when(usuarioRepository.findByTokenSessao("invalido")).thenReturn(Optional.empty());
-        assertThrows(ResponseStatusException.class, () -> autenticacaoService.obterUsuarioAutenticado("Bearer invalido"));
+                () -> autenticacaoService.obterUsuarioAutenticado(null)).getStatusCode());
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("pessoa@teste.local", "senha"));
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ResponseStatusException.class,
+                () -> autenticacaoService.obterUsuarioAutenticado(null)).getStatusCode());
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+                "ausente@teste.local", null, java.util.List.of()));
+        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ResponseStatusException.class,
+                () -> autenticacaoService.obterUsuarioAutenticado(null)).getStatusCode());
     }
 
     @Test
     void deveReaproveitarContaPadraoExistente() {
         Usuario usuario = new Usuario();
         when(usuarioRepository.findByEmailIgnoreCase("a@teste.local")).thenReturn(Optional.of(usuario));
-        assertEquals(usuario, autenticacaoService.garantirUsuarioPadrao("Nome", "A@teste.local", "senha123", PapelUsuario.USER));
+        assertEquals(usuario, autenticacaoService.garantirUsuarioPadrao("Nome", "A@teste.local", "senha1234", PapelUsuario.USER));
         verify(usuarioRepository, never()).save(any());
     }
 }
