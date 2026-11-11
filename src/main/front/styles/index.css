@@ -496,6 +496,24 @@ body {
 }
 
 .market-ticker__viewport { min-width: 0; overflow: hidden; }
+.admin-heading, .admin-actions, .admin-row-actions { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.admin-heading { justify-content: space-between; margin-bottom: 1.25rem; }
+.admin-heading h2 { margin: 0.3rem 0; }
+.admin-heading p { margin-bottom: 0; }
+.admin-filters { display: grid; grid-template-columns: minmax(12rem, 2fr) repeat(2, minmax(10rem, 1fr)); gap: 1rem; }
+.admin-page .table-container { overflow-x: auto; }
+.admin-page table { min-width: 650px; }
+.admin-page td .role-badge { display: inline-flex; }
+.admin-page .btn-primary { color: #ffffff; }
+.admin-page .badge.danger { color: #9b253d; background: #fff0f3; }
+.admin-page .badge.success { color: #075e50; background: #e6f7ef; }
+.admin-count { padding: 0.9rem 1rem 0; color: var(--text-secondary); font-size: 0.85rem; }
+.admin-dialog { width: min(540px, calc(100vw - 2rem)); max-height: calc(100dvh - 3rem); overflow-y: auto; }
+.admin-active { display: flex; align-items: center; gap: 0.6rem; }
+.admin-hint { color: var(--text-secondary); font-size: 0.85rem; }
+@media (max-width: 700px) { .admin-filters { grid-template-columns: 1fr; } .admin-heading { align-items: flex-start; } }
+.market-ticker--error { height: auto; min-height: 46px; }
+.market-ticker__status { align-self: center; padding: 0.6rem 1rem; font-size: 0.78rem; color: #ffe0a3; }
 .market-ticker__track, .market-ticker__set, .market-ticker__item { display: flex; align-items: center; }
 
 .market-ticker__track {
@@ -1083,6 +1101,11 @@ body.sidebar-is-collapsed .sidebar-toggle:hover {
 .brokers-table th:nth-child(3) { width: 18%; }
 .brokers-table th:nth-child(4) { width: 18%; }
 .brokers-table th:nth-child(5) { width: 15%; }
+
+.admin-page .brokers-table { min-width: 870px; table-layout: auto; }
+.admin-page .brokers-table th { width: auto; }
+.admin-page .brokers-table td:last-child { white-space: nowrap; }
+.broker-validation small { display: block; color: var(--text-secondary); }
 
 .positions-table th:nth-child(1) { width: 7%; }
 .positions-table th:nth-child(2) { width: 14%; }

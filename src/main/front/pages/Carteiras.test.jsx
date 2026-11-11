@@ -6,6 +6,7 @@ import '@testing-library/jest-dom/vitest';
 import Carteiras from './Carteiras';
 import { http } from '../test/http';
 import { marketUpdates } from '../test/http';
+import { AUTH_STORAGE_KEY } from '../services/auth';
 
 
 const corretoras = [
@@ -104,7 +105,8 @@ describe('operacoes da carteira', () => {
         expect(http).not.toHaveBeenCalledWith(expect.stringContaining('/transferencias'), expect.anything());
     });
 
-    it('registra um aporte na carteira', async () => {
+    it('registra um aporte na carteira de USER', async () => {
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token: 'token-user', role: 'USER' }));
         await abrir();
         const form = screen.getByRole('button', { name: 'Adicionar saldo' }).closest('form');
         fireEvent.change(within(form).getByRole('spinbutton'), { target: { value: '100' } });
@@ -113,6 +115,36 @@ describe('operacoes da carteira', () => {
         expect(http).toHaveBeenCalledWith('/carteiras/principal/aportes', expect.objectContaining({
             method: 'POST', body: JSON.stringify({ valor: '100' })
         }));
+        const [, envio] = http.mock.calls.find(([rota]) => rota === '/carteiras/principal/aportes');
+        expect(envio.headers.get('Authorization')).toBe('Bearer token-user');
+    });
+
+    it('mostra o bloqueio de um aporte sem informar sucesso', async () => {
+        await abrir();
+        http.mockResolvedValueOnce(new Response('{}', { status: 403 }));
+        const form = screen.getByRole('button', { name: 'Adicionar saldo' }).closest('form');
+        fireEvent.change(within(form).getByRole('spinbutton'), { target: { value: '100' } });
+        fireEvent.submit(form);
+        expect(await screen.findByRole('alert')).toHaveTextContent('Você não tem permissão para realizar esta ação.');
+        expect(screen.queryByText('Aporte registrado com sucesso.')).not.toBeInTheDocument();
+    });
+
+    it.each([
+        ['Vender', 'Confirmar venda'],
+        ['Transferir', 'Confirmar transferência']
+    ])('mantem o erro visivel dentro do formulario de %s', async (operacao, confirmar) => {
+        await abrir();
+        fireEvent.click(screen.getByRole('button', { name: operacao }));
+        const form = screen.getByRole('button', { name: confirmar }).closest('form');
+        if (operacao === 'Vender') {
+            fireEvent.change(within(form).getAllByRole('spinbutton')[0], { target: { value: '2' } });
+        } else {
+            fireEvent.change(within(form).getByRole('combobox'), { target: { value: 'c2' } });
+        }
+        http.mockResolvedValueOnce(new Response('{}', { status: 403 }));
+        fireEvent.submit(form);
+        expect(await within(form).findByRole('alert')).toHaveTextContent('Você não tem permissão para realizar esta ação.');
+        expect(screen.getByRole('button', { name: confirmar })).toBeInTheDocument();
     });
 
     it('transfere para outra corretora', async () => {

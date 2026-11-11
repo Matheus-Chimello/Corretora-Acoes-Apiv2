@@ -69,7 +69,7 @@ $env:SPRING_PROFILES_ACTIVE = 'test'
 ```
 
 A suite cobre assinatura, emissor, expiracao, credenciais invalidas, conta inativa,
-consultas de USER, escrita de ADMIN, erros 401/403, isolamento entre usuarios,
+consultas de USER, rotas administrativas de ADMIN, erros 401/403, isolamento entre usuarios,
 DTOs sem hash, email duplicado, preservacao do proprio email na alteracao,
 troca de senha e limites de 7, 8, 72 e 73 caracteres.
 
@@ -162,3 +162,58 @@ ao JWT e a coluna `ativo` preexistente. A aplicacao deve iniciar e a API de usua
 deve manter a conta legada inativa. O teste reproduziu o conflito encontrado na
 atualizacao do Docker antes da correcao; os logs locais estao em
 `target/tdd-docker-migracao-red.log` e `target/tdd-docker-migracao-green.log`.
+
+## Mensagens, carrossel publico e cotacoes no login (10/11/2026)
+
+`MercadoELoginIntegrationTest` usa HTTP, H2 e os servicos reais. Somente as fontes
+externas sao substituidas. Cobre acesso publico limitado aos indicadores, falhas
+parciais e totais, atualizacao BR/US no login de USER, credenciais invalidas e
+isolamento entre contas. O cenario de falha parcial executa sem transacao de teste
+para verificar que cotacoes atualizadas realmente persistem apos a falha de outra.
+
+O frontend cobre avisos 401/403/5xx, validacao, resposta vazia, rede indisponivel e
+erros dentro dos modais. Tambem verifica cotacoes antes do login, atualizacao ao
+entrar, consultas periodicas, contas sem acoes e descarte de respostas apos logout.
+Os mocks continuam apenas na fronteira HTTP e nos eventos do navegador.
+
+| Verificacao | Resultado | Linhas | Ramos |
+|---|---|---:|---:|
+| `mvnw.cmd verify` (perfil `test`) | 123 testes aprovados | 92,31% | 82,50% |
+| `npm run test:coverage` | 78 testes aprovados | 95,48% | 85,56% |
+
+Logs dos ciclos pequenos: `target/tdd-mercado-*.log`, `target/tdd-login-*.log` e
+`src/main/front/tdd-*.log`. Verificacoes finais: `target/verify-mensagens-mercado.log`
+e `src/main/front/coverage-mensagens-mercado.log`. Todos ficam fora do Git.
+
+Conforme AGENTS.md, apos validar alteracoes, reconstrua as imagens afetadas e
+atualize os containers Docker automaticamente, preservando o banco e os volumes.
+
+## Painel administrativo (10/11/2026)
+
+Os testes de App e Navbar verificam a rota `/admin/usuarios`, o link exclusivo de
+ADMIN e a negativa de acesso para USER sem consultar contas. `Usuarios.test.jsx`
+exercita listagem, cadastro, edicao de perfil/situacao, senha com confirmacao, filtros,
+falhas da API, recarga, foco no dialog e bloqueio de envios duplicados. Os servicos
+do frontend sao reais; somente a fronteira HTTP e o armazenamento do navegador
+usam dados ficticios. Os endpoints administrativos existentes continuam protegidos.
+
+Validacao: 123 testes backend aprovados no perfil `test`; 89 testes frontend
+aprovados. Cobertura frontend: 95,98% de linhas e 87,46% de ramos. Logs em
+`target/verify-admin.log` e `src/main/front/coverage-admin.log`.
+
+## Permissoes da carteira e administracao
+
+`CarteiraPermissoesIntegrationTest` verifica, com JWT real e H2, cadastro de ativos,
+aportes, compras, vendas e transferencias pelos dois perfis. Os testes conferem o
+saldo, o historico e que uma conta nao modifica ativos ou posicoes de outra,
+mesmo como ADMIN. A sincronizacao de cotacoes usa a fonte externa simulada.
+O changelog 019 alinha apenas o H2 ao tamanho da coluna usado no PostgreSQL para
+registrar os tipos de transferencia.
+
+O frontend testa a consulta de corretoras sem cadastro, o menu administrativo
+com duas opcoes e o formulario de CNPJ separado, com os erros tratados na tela.
+
+| Verificacao | Resultado | Linhas | Ramos |
+|---|---:|---:|---:|
+| `mvnw.cmd verify` (perfil `test`) | 130 testes aprovados | 94,40% | 82,50% |
+| `npm run test:coverage` | 92 testes aprovados | 95,96% | 87,70% |

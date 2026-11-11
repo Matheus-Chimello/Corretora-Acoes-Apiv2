@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import Navbar from '../components/Navbar';
-import { apiFetch } from '../services/api';
+import { apiFetch, getErrorMessage } from '../services/api';
 import { getNomeCorretora } from '../services/corretoras';
 import { correspondeAoFiltro, opcoesUnicas } from '../services/filtros';
 import { notifyMarketTickerUpdate } from '../services/marketTicker';
@@ -36,11 +36,6 @@ const performanceClass = (value) => {
 const isBrazilianMarket = (mercado) => mercado === 'BR';
 
 const hasFractionalQuantity = (quantidade) => !Number.isInteger(Number(quantidade));
-
-const getErrorMessage = async (response, fallback) => {
-    const data = await response.json().catch(() => ({}));
-    return data.message || fallback;
-};
 
 const Carteiras = () => {
     const [carteira, setCarteira] = useState(null);
@@ -86,8 +81,9 @@ const Carteiras = () => {
                 apiFetch('/carteiras/principal/transacoes')
             ]);
 
-            if (responses.some((response) => !response.ok)) {
-                throw new Error('Não foi possível carregar os dados da carteira.');
+            const failedResponse = responses.find((response) => !response.ok);
+            if (failedResponse) {
+                throw new Error(await getErrorMessage(failedResponse, 'Não foi possível carregar os dados da carteira.'));
             }
 
             const [carteiraData, posicoesData, catalogoData, corretorasData, transacoesData] = await Promise.all(
@@ -183,6 +179,7 @@ const Carteiras = () => {
     };
 
     const abrirVenda = (posicao) => {
+        setMensagem({ tipo: '', texto: '' });
         setVenda({
             posicaoId: posicao.posicaoId,
             quantidade: '',
@@ -192,6 +189,7 @@ const Carteiras = () => {
     };
 
     const abrirTransferencia = (posicao) => {
+        setMensagem({ tipo: '', texto: '' });
         setTransferencia({
             posicaoId: posicao.posicaoId,
             corretoraDestinoId: '',
@@ -449,7 +447,7 @@ const Carteiras = () => {
                     </form>
                 </section>
 
-                {mensagem.texto && <p className={`alert ${mensagem.tipo === 'error' ? 'alert-error' : 'alert-success'}`}>{mensagem.texto}</p>}
+                {mensagem.texto && !vendaAberta && !transferenciaAberta && <p role="alert" className={`alert ${mensagem.tipo === 'error' ? 'alert-error' : 'alert-success'}`}>{mensagem.texto}</p>}
 
                 <section className="table-container">
                     <div className="table-heading">
@@ -620,6 +618,7 @@ const Carteiras = () => {
                                 <button type="button" onClick={() => setVendaAberta(false)} className="modal-close" aria-label="Fechar venda">x</button>
                             </div>
                             <form onSubmit={venderAcao} className="modal-form">
+                                {mensagem.tipo === 'error' && <p role="alert" className="alert alert-error">{mensagem.texto}</p>}
                                 <div className="field-group">
                                     <label>Posição</label>
                                     <input
@@ -678,6 +677,7 @@ const Carteiras = () => {
                                 <button type="button" onClick={() => setTransferenciaAberta(false)} className="modal-close" aria-label="Fechar transferência">x</button>
                             </div>
                             <form onSubmit={transferirAcao} className="modal-form">
+                                {mensagem.tipo === 'error' && <p role="alert" className="alert alert-error">{mensagem.texto}</p>}
                                 <div className="field-group">
                                     <label>Origem</label>
                                     <input

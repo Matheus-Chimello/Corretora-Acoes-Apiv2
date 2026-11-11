@@ -10,19 +10,66 @@ O email existente representa o username, e os IDs continuam UUID. As rotas exist
 | Operacao | Publico | USER | ADMIN |
 |---|:---:|:---:|:---:|
 | POST /auth/login | Sim | Sim | Sim |
+| GET /api/mercado/cotacoes (indicadores publicos) | Sim | Sim | Sim |
 | GET /auth/me | Nao | Sim | Sim |
-| Consultar acoes, corretoras, carteiras e dashboard | Nao | Sim | Sim |
-| Criar ou alterar dados de negocio, inclusive aportes, compras, vendas, transferencias e cotacoes | Nao | Nao | Sim |
+| Consultar cotacoes, corretoras, carteira e historico | Nao | Sim | Sim |
+| Adicionar acoes ao catalogo e registrar aportes, compras, vendas e transferencias | Nao | Na propria conta | Na propria conta |
+| Atualizar cotacoes a partir do provedor | Nao | Na propria conta | Na propria conta |
+| Cadastrar corretoras compartilhadas | Nao | Nao | Sim |
 | Gerenciar usuarios em /api/usuarios | Nao | Nao | Sim |
 | POST /auth/register (contrato existente) | Nao | Nao | Sim |
 
 O filtro exige autenticacao nas rotas da API. `@PreAuthorize` fica junto das operacoes
 de escrita e na classe administrativa, como na aula. Os arquivos estaticos e as
 rotas da tela de login sao publicos para permitir carregar o frontend.
-O isolamento horizontal existente continua: cada identidade consulta apenas suas
-acoes e sua carteira; o papel ADMIN nao concede acesso a carteiras de outros usuarios.
+A matriz adapta a Aula 14 para que os usuarios operem a propria carteira. A API
+identifica o titular pelo JWT e limita leituras e operacoes ao seu catalogo e carteira,
+inclusive para ADMIN. Os endpoints existentes de ajuste direto de saldo e recalculo
+avulso continuam restritos a ADMIN e a propria conta.
+
+Ao validar o login, o backend tenta atualizar todas as cotacoes do catalogo da
+conta (BR e US) e recalcula o saldo de acoes para ambos os perfis.
+Cada acao e atualizada em sua propria transacao. Se o provedor falhar para alguma
+delas, as demais atualizacoes sao preservadas, o login continua e a resposta informa
+`cotacoesAtualizadas: false`. O painel avisa que foram mantidos os ultimos valores
+disponiveis. Credenciais invalidas nao disparam a atualizacao.
+
+O carrossel consulta cotacoes antes do login em `/api/mercado/cotacoes`, com PETR4,
+VALE3, ITUB4 e MGLU3, sem IDs de contas, carteiras ou outros dados de usuarios.
+Esses simbolos sao disponibilizados pelo [provedor existente](https://brapi.dev/docs/acoes).
+A consulta publica tem cache HTTP de 30 segundos. Depois do login, o carrossel
+carrega o catalogo atualizado da conta; contas sem acoes usam os indicadores publicos.
+As consultas se repetem a cada 30 segundos e apos mudancas de sessao ou operacoes.
+Respostas atrasadas de uma sessao anterior sao descartadas.
+
+As telas apresentam mensagens de permissao insuficiente (403), sessao expirada
+(401), indisponibilidade e falhas de conexao. Erros de validacao mostram a mensagem
+e os campos retornados pela API; o corpo JSON e detalhes internos de erros 5xx nao
+sao exibidos. Nos formularios de venda e transferencia, o aviso fica dentro do modal.
 
 ## Configuracao
+
+### Painel administrativo
+
+Ao entrar com uma conta ADMIN, o frontend abre **Administracao** em
+`http://localhost:8082/#/admin/usuarios`. O painel permite buscar e filtrar contas,
+cadastrar usuarios, editar nome/email/perfil, ativar/desativar contas e alterar senhas
+com confirmacao. A situacao da conta e alterada na opcao **Editar**, em **Conta ativa**.
+O menu lateral de ADMIN tem duas opcoes independentes: **Administracao** e
+**Corretoras**. Em `/admin/corretoras`, o administrador cadastra por CNPJ e
+consulta a lista completa. A acao **Revalidar** faz uma nova consulta a
+BrasilAPI e registra a fonte, a data e o resultado. Uma falha na consulta
+preserva o resultado anterior.
+Para ADMIN, as rotas comuns de Visao geral, Carteira e Acoes redirecionam para
+Administracao. O caminho `/corretoras` abre a area de corretoras do ADMIN.
+USER usa o menu comum, onde **Corretoras** lista as instituicoes validadas.
+Novas contas usam USER por padrao. Senhas existentes nunca sao carregadas na tela.
+USER recebe uma mensagem de acesso restrito ao tentar abrir a URL administrativa;
+a API continua validando todas as permissoes. Falhas aparecem no proprio formulario,
+e uma operacao so e confirmada apos a resposta da API. Os dialogs suportam Escape
+e navegacao com Tab, sem perder o foco para o fundo da pagina.
+
+### Ambiente
 
 Copie `.env.example` para `.env` e configure `JWT_SECRET` (pelo menos 32 bytes),
 `JWT_EXPIRATION` (padrao `60m`), `JWT_ISSUER`, `APP_ADMIN_USERNAME` (email) e
@@ -50,8 +97,9 @@ Os changelogs anteriores nao foram modificados. Sessoes antigas exigem novo logi
    `{"nome":"Pessoa","email":"pessoa@teste.local","password":"senha-de-teste","papel":"USER"}`.
    Espere 201; nenhuma resposta de usuario apresenta senha ou hash.
 4. Consulte `GET /api/usuarios` ou `GET /api/usuarios/{id}` como ADMIN.
-5. Autentique a nova pessoa e consulte `GET /corretoras` (200). Tente
-   `POST /carteiras/principal/aportes` com `{"valor":100}` e `GET /api/usuarios` (403).
+5. Autentique a nova pessoa, consulte `GET /corretoras` e registre um aporte com
+   `POST /carteiras/principal/aportes` e `{"valor":100}` (ambos 200). Com o mesmo
+   token, `POST /corretoras` e `GET /api/usuarios` devem retornar 403.
 6. Como ADMIN, envie `PUT /api/usuarios/{id}` com
    `{"nome":"Pessoa","email":"pessoa@teste.local","papel":"USER","ativo":false}`.
    Um novo login dessa conta deve retornar 401.
@@ -71,11 +119,14 @@ JWT e assinado com HS256 e contem emissor, identidade, emissao, expiracao e
 authorities. O payload e legivel em Base64: assinatura garante integridade,
 mas nao sigilo. Senhas e chaves nunca devem entrar nele.
 
-A API usa `STATELESS`; nao persiste tokens nem cria sessao HTTP. Sair remove o
-token do cliente. O endpoint existente `/auth/logout` apenas confirma a identidade
-e retorna 204, sem revogar o token. Trocas de senha, papel e situacao nao revogam
-JWTs ja emitidos; as authorities permanecem ate expirar, como nas aulas.
-Nao foram acrescentados refresh token, recuperacao de senha, revogacao ou auditoria.
+A API usa `STATELESS` e verifica a situacao da conta a cada requisicao com JWT.
+Inativar uma conta invalida os tokens que ja foram emitidos para ela. O frontend
+descarta a sessao e volta ao login assim que recebe a rejeicao da API. Depois de
+reativar a conta, o usuario precisa entrar novamente.
+
+No logout manual, o cliente descarta seu token localmente. O endpoint
+`/auth/logout` confirma a identidade e retorna 204. As permissoes de papel dos
+tokens em uso valem ate a expiracao.
 
 ## Testes e cobertura
 

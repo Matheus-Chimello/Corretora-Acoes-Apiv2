@@ -1,6 +1,7 @@
 package com.projeto.gestao.api.controller;
 
 import com.projeto.gestao.service.AutenticacaoService;
+import com.projeto.gestao.service.CotacoesLoginService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,9 +26,11 @@ import java.util.Map;
 public class AutenticacaoController {
 
     private final AutenticacaoService autenticacaoService;
+    private final CotacoesLoginService cotacoes;
 
-    public AutenticacaoController(AutenticacaoService autenticacaoService) {
+    public AutenticacaoController(AutenticacaoService autenticacaoService, CotacoesLoginService cotacoes) {
         this.autenticacaoService = autenticacaoService;
+        this.cotacoes = cotacoes;
     }
 
     @PostMapping("/register")
@@ -45,7 +48,8 @@ public class AutenticacaoController {
 
     @PostMapping("/login")
     public ResponseEntity<AutenticacaoService.RespostaAutenticacao> login(@Valid @RequestBody LoginRequest payload) {
-        return ResponseEntity.ok(autenticacaoService.login(payload.email(), payload.password()));
+        var resposta = autenticacaoService.login(payload.email(), payload.password());
+        return ResponseEntity.ok(resposta.comCotacoesAtualizadas(cotacoes.atualizar(resposta.email())));
     }
 
     @GetMapping("/me")

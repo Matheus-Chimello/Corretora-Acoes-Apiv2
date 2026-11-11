@@ -62,8 +62,7 @@ class CorretoraServiceTest {
         String cnpj = "02332886000104";
 
         when(corretoraRepository.existsByCnpj(cnpj)).thenReturn(false);
-        when(validacaoCnpjPort.getCnpjInfo(cnpj)).thenReturn(cnpjInfoMock);
-        when(validacaoCnpjPort.isValidAndMarketParticipant(cnpj)).thenReturn(true);
+        when(validacaoCnpjPort.consultar(cnpj)).thenReturn(new ValidacaoCnpjPort.ConsultaCnpj(cnpjInfoMock, true, "BrasilAPI"));
         when(buscaCepPort.getCepInfo(anyString())).thenReturn(
             new BuscaCepPort.CepInfo("04538-133", "Av. Brigadeiro Faria Lima", "6o andar", "Itaim Bibi", "Sao Paulo", "SP")
         );
@@ -103,8 +102,7 @@ class CorretoraServiceTest {
         );
 
         when(corretoraRepository.existsByCnpj(cnpj)).thenReturn(false);
-        when(validacaoCnpjPort.getCnpjInfo(cnpj)).thenReturn(cnpjInfoNaoFinanceiro);
-        when(validacaoCnpjPort.isValidAndMarketParticipant(cnpj)).thenReturn(false);
+        when(validacaoCnpjPort.consultar(cnpj)).thenReturn(new ValidacaoCnpjPort.ConsultaCnpj(cnpjInfoNaoFinanceiro, false, "BrasilAPI"));
         IllegalArgumentException erro = assertThrows(
                 IllegalArgumentException.class,
                 () -> corretoraService.cadastrarCorretora(cnpj)
@@ -120,8 +118,7 @@ class CorretoraServiceTest {
         String cnpj = "02332886000104";
 
         when(corretoraRepository.existsByCnpj(cnpj)).thenReturn(false);
-        when(validacaoCnpjPort.getCnpjInfo(cnpj)).thenReturn(cnpjInfoMock);
-        when(validacaoCnpjPort.isValidAndMarketParticipant(cnpj)).thenReturn(false);
+        when(validacaoCnpjPort.consultar(cnpj)).thenReturn(new ValidacaoCnpjPort.ConsultaCnpj(cnpjInfoMock, false, "BrasilAPI"));
         when(buscaCepPort.getCepInfo(anyString())).thenReturn(cepInfo());
         when(corretoraRepository.save(any(Corretora.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -142,7 +139,7 @@ class CorretoraServiceTest {
         );
 
         assertTrue(ex.getMessage().contains("existe"));
-        verify(validacaoCnpjPort, never()).getCnpjInfo(anyString());
+        verify(validacaoCnpjPort, never()).consultar(anyString());
     }
 
     @Test
@@ -150,7 +147,7 @@ class CorretoraServiceTest {
     void deveLancarExcecaoQuandoBrasilApiNaoRetornaDados() {
         String cnpj = "02332886000104";
         when(corretoraRepository.existsByCnpj(cnpj)).thenReturn(false);
-        when(validacaoCnpjPort.getCnpjInfo(cnpj)).thenReturn(null);
+        when(validacaoCnpjPort.consultar(cnpj)).thenReturn(null);
 
         IllegalArgumentException ex = assertThrows(
             IllegalArgumentException.class,
@@ -168,8 +165,7 @@ class CorretoraServiceTest {
         String cnpjLimpo = "02332886000104";
 
         when(corretoraRepository.existsByCnpj(cnpjLimpo)).thenReturn(false);
-        when(validacaoCnpjPort.getCnpjInfo(cnpjLimpo)).thenReturn(cnpjInfoMock);
-        when(validacaoCnpjPort.isValidAndMarketParticipant(cnpjLimpo)).thenReturn(true);
+        when(validacaoCnpjPort.consultar(cnpjLimpo)).thenReturn(new ValidacaoCnpjPort.ConsultaCnpj(cnpjInfoMock, true, "BrasilAPI"));
         when(buscaCepPort.getCepInfo(anyString())).thenReturn(cepInfo());
         when(corretoraRepository.save(any(Corretora.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -187,7 +183,7 @@ class CorretoraServiceTest {
         );
 
         assertTrue(ex.getMessage().contains("CNPJ invalido"));
-        verify(validacaoCnpjPort, never()).getCnpjInfo(anyString());
+        verify(validacaoCnpjPort, never()).consultar(anyString());
     }
 
     @Test
@@ -195,8 +191,7 @@ class CorretoraServiceTest {
     void deveRecusarCorretoraComCepNaoValidado() {
         String cnpj = "02332886000104";
         when(corretoraRepository.existsByCnpj(cnpj)).thenReturn(false);
-        when(validacaoCnpjPort.getCnpjInfo(cnpj)).thenReturn(cnpjInfoMock);
-        when(validacaoCnpjPort.isValidAndMarketParticipant(cnpj)).thenReturn(true);
+        when(validacaoCnpjPort.consultar(cnpj)).thenReturn(new ValidacaoCnpjPort.ConsultaCnpj(cnpjInfoMock, true, "BrasilAPI"));
         when(buscaCepPort.getCepInfo(anyString())).thenReturn(null);
 
         IllegalArgumentException ex = assertThrows(

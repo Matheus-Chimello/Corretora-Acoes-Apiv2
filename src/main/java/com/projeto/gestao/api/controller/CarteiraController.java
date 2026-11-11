@@ -73,7 +73,7 @@ public class CarteiraController {
     }
 
     @PutMapping("/principal/atualizar-cotacoes")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<List<PosicaoAcaoResponse>> atualizarCotacoes(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
     ) {
@@ -84,7 +84,7 @@ public class CarteiraController {
     }
 
     @PostMapping("/principal/acoes/{acaoId}/compras")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PosicaoAcaoResponse> comprarAcao(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @PathVariable UUID acaoId,
@@ -97,7 +97,7 @@ public class CarteiraController {
     }
 
     @PostMapping("/principal/posicoes/{posicaoId}/vendas")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PosicaoAcaoResponse> venderAcao(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @PathVariable UUID posicaoId,
@@ -110,7 +110,7 @@ public class CarteiraController {
     }
 
     @PostMapping("/principal/posicoes/{posicaoId}/transferencias")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<PosicaoAcaoResponse> transferirAcao(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @PathVariable UUID posicaoId,
@@ -142,7 +142,7 @@ public class CarteiraController {
     }
 
     @PostMapping("/principal/aportes")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<Carteira> realizarAporte(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @Valid @RequestBody AporteRequest payload

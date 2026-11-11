@@ -5,11 +5,21 @@ import '@testing-library/jest-dom/vitest';
 import { MemoryRouter } from 'react-router-dom';
 import Dashboard from './Dashboard';
 import { http } from '../test/http';
+import { AUTH_STORAGE_KEY } from '../services/auth';
 
 
 describe('visao geral', () => {
     beforeEach(() => vi.clearAllMocks());
     afterEach(cleanup);
+
+    it('avisa quando o login manteve cotacoes anteriores por indisponibilidade do provedor', async () => {
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token: 'token-user', cotacoesAtualizadas: false }));
+        http.mockImplementation(async (url) => ({ ok: true, json: async () => url.endsWith('stats') ? {} : [] }));
+        render(<MemoryRouter><Dashboard /></MemoryRouter>);
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+            'Algumas cotações não puderam ser atualizadas ao entrar. Os últimos valores disponíveis foram mantidos.'
+        );
+    });
 
     it('exibe a posicao e seu resultado com os dados da API', async () => {
         const respostas = {
@@ -54,7 +64,16 @@ describe('visao geral', () => {
         http.mockResolvedValue({ ok: false });
         render(<MemoryRouter><Dashboard /></MemoryRouter>);
         await vi.waitFor(() => expect(erro).toHaveBeenCalled());
+        expect(screen.getByRole('alert')).toHaveTextContent('Não foi possível carregar os dados do painel.');
         expect(screen.getByText('Nenhuma posição disponível para exibição.')).toBeInTheDocument();
         erro.mockRestore();
+    });
+
+    it('orienta novo login se uma das consultas do painel perder a sessao', async () => {
+        http.mockImplementation(async (url) => url === '/carteiras/principal'
+            ? new Response('{}', { status: 401 })
+            : { ok: true, json: async () => [] });
+        render(<MemoryRouter><Dashboard /></MemoryRouter>);
+        expect(await screen.findByRole('alert')).toHaveTextContent('Sua sessão expirou ou é inválida. Faça login novamente.');
     });
 });

@@ -2,6 +2,7 @@ package com.projeto.gestao.domain.dto;
 
 import com.projeto.gestao.domain.model.Corretora;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -21,7 +22,9 @@ public record CorretoraResponse(
         String uf,
         String situacaoCadastral,
         Boolean validadaNaCvm,
-        LocalDateTime dataCadastro
+        LocalDateTime dataCadastro,
+        Instant ultimaValidacaoEm,
+        String fonteValidacao
 ) {
     public static CorretoraResponse from(Corretora corretora) {
         return new CorretoraResponse(
@@ -40,7 +43,9 @@ public record CorretoraResponse(
                 corretora.getUf(),
                 corretora.getSituacaoCadastral(),
                 corretora.getValidadaNaCvm(),
-                corretora.getDataCadastro()
+                corretora.getDataCadastro(),
+                corretora.getUltimaValidacaoEm(),
+                corretora.getFonteValidacao()
         );
     }
 }

@@ -3,7 +3,6 @@ package com.projeto.gestao.infra.adapter;
 import com.projeto.gestao.domain.port.ValidacaoCnpjPort;
 import com.projeto.gestao.infra.client.BrasilApiClient;
 import com.projeto.gestao.infra.client.dto.BrasilApiCnpjDto;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
 import java.text.Normalizer;
@@ -19,29 +18,12 @@ public class BrasilApiAdapter implements ValidacaoCnpjPort {
     }
 
     @Override
-    public boolean isValidAndMarketParticipant(String cnpj) {
-        try {
-            BrasilApiCnpjDto dto = brasilApiClient.consultarCnpj(cnpj);
-            if (dto == null) return false;
-
-            if (dto.getSituacaoCadastral() == null || dto.getSituacaoCadastral() != 2) {
-                return false;
-            }
-
-            return isMarketParticipant(dto);
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    @Override
-    @Cacheable(value = "cnpj", key = "#cnpj")
-    public CnpjInfo getCnpjInfo(String cnpj) {
+    public ConsultaCnpj consultar(String cnpj) {
         BrasilApiCnpjDto dto = brasilApiClient.consultarCnpj(cnpj);
         if (dto == null) return null;
 
         String cnaeDescricao = dto.getCnae_principal() != null ? dto.getCnae_principal().getDescricao() : "";
-        return new CnpjInfo(
+        var dados = new CnpjInfo(
             dto.getRazaoSocial(),
             dto.getNomeFantasia(),
             cnaeDescricao,
@@ -56,6 +38,8 @@ public class BrasilApiAdapter implements ValidacaoCnpjPort {
             dto.getUf(),
             dto.getDescricaoSituacaoCadastral()
         );
+        boolean participanteMercado = Integer.valueOf(2).equals(dto.getSituacaoCadastral()) && isMarketParticipant(dto);
+        return new ConsultaCnpj(dados, participanteMercado, "BrasilAPI");
     }
 
     private boolean isMarketParticipant(BrasilApiCnpjDto dto) {

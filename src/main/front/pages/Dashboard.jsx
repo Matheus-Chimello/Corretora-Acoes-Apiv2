@@ -14,7 +14,8 @@ import {
 } from 'recharts';
 import Navbar from '../components/Navbar';
 import PortfolioOverview from '../components/PortfolioOverview';
-import { apiFetch } from '../services/api';
+import { apiFetch, getErrorMessage } from '../services/api';
+import { getCurrentUser } from '../services/auth';
 
 const CHART_COLORS = ['#0b7b67', '#e3a832', '#d64d69', '#3478c6', '#7a9e56', '#6b7280'];
 
@@ -63,6 +64,7 @@ const ChartTooltip = ({ active, payload, label, valueFormatter }) => {
 };
 
 const Dashboard = () => {
+    const cotacoesPendentes = getCurrentUser()?.cotacoesAtualizadas === false;
     const [stats, setStats] = useState({
         corretorasCount: 0,
         acoesCount: 0,
@@ -73,6 +75,7 @@ const Dashboard = () => {
     const [catalogo, setCatalogo] = useState([]);
     const [carteira, setCarteira] = useState({ saldoEmConta: 0 });
     const [transacoes, setTransacoes] = useState([]);
+    const [mensagemErro, setMensagemErro] = useState('');
 
     useEffect(() => {
         Promise.all([
@@ -84,7 +87,9 @@ const Dashboard = () => {
         ])
             .then(async ([statsResponse, acoesResponse, catalogoResponse, carteiraResponse, transacoesResponse]) => {
                 if (!statsResponse.ok || !acoesResponse.ok || !catalogoResponse.ok || !carteiraResponse.ok || !transacoesResponse.ok) {
-                    throw new Error('Não foi possível carregar os dados do painel.');
+                    const failedResponse = [statsResponse, acoesResponse, catalogoResponse, carteiraResponse, transacoesResponse]
+                        .find((response) => !response.ok);
+                    throw new Error(await getErrorMessage(failedResponse, 'Não foi possível carregar os dados do painel.'));
                 }
 
                 const statsData = await statsResponse.json();
@@ -98,7 +103,10 @@ const Dashboard = () => {
                 setCarteira(carteiraData || { saldoEmConta: 0 });
                 setTransacoes(Array.isArray(transacoesData) ? transacoesData : []);
             })
-            .catch((error) => console.error('Erro ao buscar dados:', error));
+            .catch((error) => {
+                console.error('Erro ao buscar dados:', error);
+                setMensagemErro(error.message);
+            });
     }, []);
 
     const totalPosicoes = acoes.reduce((total, acao) => total + Number(acao.posicao || 0), 0);
@@ -121,6 +129,10 @@ const Dashboard = () => {
             <Navbar title="Visão geral" />
 
             <main className="dashboard page-content">
+                {cotacoesPendentes && <p role="alert" className="alert alert-warning">
+                    Algumas cotações não puderam ser atualizadas ao entrar. Os últimos valores disponíveis foram mantidos.
+                </p>}
+                {mensagemErro && <p role="alert" className="alert alert-error">{mensagemErro}</p>}
                 <section className="dashboard-intro">
                     <div>
                         <p className="eyebrow">Carteira de investimentos</p>

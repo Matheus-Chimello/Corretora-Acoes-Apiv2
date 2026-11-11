@@ -23,4 +23,7 @@
              relativeToChangelogFile="true"/>
 
     <include file="changes/009-autenticacao-jwt.xml" relativeToChangelogFile="true"/>
+    <include file="changes/010-ampliar-tipo-transacao-h2.xml" relativeToChangelogFile="true"/>
+    <include file="changes/011-revogar-sessoes-de-contas-inativas.xml" relativeToChangelogFile="true"/>
+    <include file="changes/012-registrar-validacao-de-corretora.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

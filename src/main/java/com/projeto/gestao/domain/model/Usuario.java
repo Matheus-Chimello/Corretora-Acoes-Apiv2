@@ -37,6 +37,9 @@ public class Usuario {
     @Column(nullable = false)
     private Boolean ativo = true;
 
+    @Column(nullable = false)
+    private long versaoSessao;
+
     public UUID getId() {
         return id;
     }
@@ -82,6 +85,18 @@ public class Usuario {
     }
 
     public void setAtivo(Boolean ativo) {
+        if (Boolean.TRUE.equals(this.ativo) && Boolean.FALSE.equals(ativo)) {
+            versaoSessao++;
+        }
         this.ativo = ativo;
+    }
+
+    public String identificadorSessao() {
+        return id + ":" + versaoSessao;
+    }
+
+    public boolean aceitaSessao(String identificador) {
+        return Boolean.TRUE.equals(ativo)
+                && (identificador == null ? versaoSessao == 0 : identificadorSessao().equals(identificador));
     }
 }

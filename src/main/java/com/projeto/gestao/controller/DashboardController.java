@@ -6,6 +6,7 @@ import com.projeto.gestao.service.AcaoService;
 import com.projeto.gestao.service.AutenticacaoService;
 import com.projeto.gestao.service.CarteiraService;
 import com.projeto.gestao.service.CorretoraService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -41,12 +42,13 @@ public class DashboardController {
 
     @GetMapping("/stats")
     public Map<String, Object> getStats(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
+            HttpServletRequest request
     ) {
         Usuario usuario = usuarioAutenticado(autorizacao);
         var carteira = carteiraService.buscarCarteiraPrincipal(usuario);
         Map<String, Object> stats = new HashMap<>();
-        stats.put("corretorasCount", corretoraService.listarTodas().size());
+        stats.put("corretorasCount", corretoraService.listarVisiveis(request.isUserInRole("ADMIN")).size());
         stats.put("acoesCount", carteiraService.listarPosicoes(usuario).size());
         stats.put("carteirasCount", carteiraService.listarTodas(usuario).size());
         stats.put("saldoAcao", carteira.getSaldoAcao());
@@ -56,10 +58,11 @@ public class DashboardController {
 
     @GetMapping("/corretoras")
     public List<?> listarCorretoras(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
+            HttpServletRequest request
     ) {
         usuarioAutenticado(autorizacao);
-        return corretoraService.listarTodas();
+        return corretoraService.listarVisiveis(request.isUserInRole("ADMIN"));
     }
 
     @GetMapping("/acoes")

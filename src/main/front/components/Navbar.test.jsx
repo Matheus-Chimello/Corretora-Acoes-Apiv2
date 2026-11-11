@@ -1,6 +1,6 @@
 import React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import Navbar from './Navbar';
@@ -9,6 +9,22 @@ import '../test/http';
 
 describe('menu lateral', () => {
     beforeEach(() => localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token: 'jwt-teste', name: 'Matheus' })));
+
+    it('mostra o menu e a pagina inicial de cada perfil', () => {
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token: 'jwt-admin', role: 'ADMIN' }));
+        const admin = render(<MemoryRouter><Navbar title="Carteira" /></MemoryRouter>);
+        const menuAdmin = within(screen.getByRole('navigation', { name: 'Menu do administrador' }));
+        expect(menuAdmin.getAllByRole('link').map(link => link.textContent)).toEqual(['Administração', 'Corretoras']);
+        expect(menuAdmin.getByRole('link', { name: 'Administração' })).toHaveAttribute('href', '/admin/usuarios');
+        expect(menuAdmin.getByRole('link', { name: 'Corretoras' })).toHaveAttribute('href', '/admin/corretoras');
+        expect(screen.getByRole('link', { name: 'Ir para a administração' })).toHaveAttribute('href', '/admin/usuarios');
+        admin.unmount();
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token: 'jwt-user', role: 'USER' }));
+        render(<MemoryRouter><Navbar title="Carteira" /></MemoryRouter>);
+        const menuUsuario = within(screen.getByRole('navigation', { name: 'Menu principal' }));
+        expect(menuUsuario.getAllByRole('link').map(link => link.textContent)).toEqual(['Visão geral', 'Carteira', 'Corretoras', 'Ações']);
+        expect(menuUsuario.getByRole('link', { name: 'Corretoras' })).toHaveAttribute('href', '/corretoras');
+    });
 
     it('recolhe e expande o menu e salva a preferencia', () => {
         render(<MemoryRouter><Navbar title="Carteira" /></MemoryRouter>);

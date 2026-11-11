@@ -3,9 +3,23 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { getCurrentUser, logout } from '../services/auth';
 
+const linksAdmin = [
+    { to: '/admin/usuarios', label: 'Administração' },
+    { to: '/admin/corretoras', label: 'Corretoras' }
+];
+
+const linksUsuario = [
+    { to: '/', label: 'Visão geral' },
+    { to: '/carteiras', label: 'Carteira' },
+    { to: '/corretoras', label: 'Corretoras' },
+    { to: '/acoes', label: 'Ações' }
+];
+
 const Navbar = ({ title }) => {
     const navigate = useNavigate();
     const currentUser = getCurrentUser();
+    const isAdmin = currentUser?.role === 'ADMIN';
+    const links = isAdmin ? linksAdmin : linksUsuario;
     const [sidebarRecolhida, setSidebarRecolhida] = useState(
         () => window.localStorage.getItem('sidebar-recolhida') === 'true'
     );
@@ -37,28 +51,22 @@ const Navbar = ({ title }) => {
                 {sidebarRecolhida ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}
             </button>
             <div className="header-brand">
-                <NavLink to="/" end className="brand" aria-label="Ir para a visão geral">
+                <NavLink to={links[0].to} end className="brand"
+                    aria-label={isAdmin ? 'Ir para a administração' : 'Ir para a visão geral'}>
                     <span className="brand-mark" aria-hidden="true">CA</span>
                     <span className="brand-name">Corretora <strong>Ações</strong></span>
                 </NavLink>
                 <div className="page-title">
-                    <span>Carteira</span>
+                    <span>{isAdmin ? 'Controle de acesso' : 'Carteira'}</span>
                     <h1>{title}</h1>
                 </div>
             </div>
-            <nav className="nav-links">
-                <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : ''}>
-                    Visão geral
-                </NavLink>
-                <NavLink to="/carteiras" className={({ isActive }) => isActive ? 'active' : ''}>
-                    Carteira
-                </NavLink>
-                <NavLink to="/corretoras" className={({ isActive }) => isActive ? 'active' : ''}>
-                    Corretoras
-                </NavLink>
-                <NavLink to="/acoes" className={({ isActive }) => isActive ? 'active' : ''}>
-                    Ações
-                </NavLink>
+            <nav className="nav-links" aria-label={isAdmin ? 'Menu do administrador' : 'Menu principal'}>
+                {links.map(({ to, label }) => (
+                    <NavLink key={to} to={to} end className={({ isActive }) => isActive ? 'active' : ''}>
+                        {label}
+                    </NavLink>
+                ))}
             </nav>
             <div className="user-menu">
                 <span className="user-name">{displayName}</span>

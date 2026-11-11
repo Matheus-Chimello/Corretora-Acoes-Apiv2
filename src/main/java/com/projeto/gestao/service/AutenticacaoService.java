@@ -64,20 +64,21 @@ public class AutenticacaoService {
     public RespostaAutenticacao login(String email, String senha) {
         var authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
                 normalizarEmail(email), senha == null ? "" : senha));
+        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(authentication.getName()).orElseThrow();
         Instant issuedAt = Instant.now();
         var claims = JwtClaimsSet.builder().issuer(jwtProperties.issuer()).subject(authentication.getName())
                 .issuedAt(issuedAt).expiresAt(issuedAt.plus(jwtProperties.expiration()))
+                .claim("sessao", usuario.identificadorSessao())
                 .claim("authorities", authentication.getAuthorities().stream()
                         .map(GrantedAuthority::getAuthority).toList()).build();
         var header = JwsHeader.with(MacAlgorithm.HS256).type("JWT").build();
         String token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
-        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(authentication.getName()).orElseThrow();
         return resposta(usuario, token);
     }
 
     @Transactional
     public void encerrarSessao(String autorizacao) {
-        // JWT stateless: o cliente descarta o token; ele permanece valido ate expirar.
+        // No logout manual, o cliente descarta o token.
         obterUsuarioAutenticado(autorizacao);
     }
 
@@ -123,11 +124,15 @@ public class AutenticacaoService {
         return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
 
-    public record RespostaAutenticacao(String token, String nome, String email, String role, String tipo, long expiresIn) {
+    public record RespostaAutenticacao(String token, String nome, String email, String role, String tipo, long expiresIn,
+                                       Boolean cotacoesAtualizadas) {
+        public RespostaAutenticacao comCotacoesAtualizadas(boolean atualizadas) {
+            return new RespostaAutenticacao(token, nome, email, role, tipo, expiresIn, atualizadas);
+        }
     }
 
     private RespostaAutenticacao resposta(Usuario usuario, String token) {
         return new RespostaAutenticacao(token, usuario.getNome(), usuario.getEmail(), usuario.getPapel().name(),
-                "Bearer", jwtProperties.expiration().toSeconds());
+                "Bearer", jwtProperties.expiration().toSeconds(), null);
     }
 }

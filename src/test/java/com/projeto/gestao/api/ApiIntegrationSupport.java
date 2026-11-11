@@ -41,10 +41,10 @@ public abstract class ApiIntegrationSupport {
                 Map.of("nome", "Pessoa HTTP", "email", "http@teste.local", "password", "senha-teste", "papel", "ADMIN"))))
                 .andExpect(status().isCreated());
         quandoCotacao("30.00");
-        when(cnpjs.getCnpjInfo(anyString())).thenReturn(new ValidacaoCnpjPort.CnpjInfo(
+        var dadosCnpj = new ValidacaoCnpjPort.CnpjInfo(
                 "Corretora de teste", "Teste", "Corretora de valores", "01001000", "contato@teste.local", "11999999999",
-                "Rua de teste", "1", "", "Centro", "Sao Paulo", "SP", "ATIVA"));
-        when(cnpjs.isValidAndMarketParticipant(anyString())).thenReturn(true);
+                "Rua de teste", "1", "", "Centro", "Sao Paulo", "SP", "ATIVA");
+        when(cnpjs.consultar(anyString())).thenReturn(new ValidacaoCnpjPort.ConsultaCnpj(dadosCnpj, true, "BrasilAPI"));
         when(ceps.getCepInfo(anyString())).thenReturn(new BuscaCepPort.CepInfo(
                 "01001000", "Rua de teste", "", "Centro", "Sao Paulo", "SP"));
     }

@@ -40,7 +40,7 @@ public class AcaoController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<AcaoResponse> cadastrarAcao(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @Valid @RequestBody AcaoRequest payload
@@ -81,7 +81,7 @@ public class AcaoController {
     }
 
     @PutMapping("/{id}/atualizar-cotacao")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<AcaoResponse> atualizarCotacao(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @PathVariable UUID id
@@ -91,7 +91,7 @@ public class AcaoController {
     }
 
     @PutMapping("/atualizar-cotacoes")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<List<AcaoResponse>> atualizarCotacoesDoCatalogo(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
     ) {

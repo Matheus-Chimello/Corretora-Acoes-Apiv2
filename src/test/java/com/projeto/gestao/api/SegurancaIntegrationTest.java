@@ -83,9 +83,9 @@ class SegurancaIntegrationTest {
 
     @Test
     @WithMockUser(username = "jwt@teste.local", roles = "USER")
-    void userNaoDeveAlterarDadosDeNegocio() throws Exception {
-        mvc.perform(post("/carteiras/principal/aportes").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"valor\":100}"))
+    void userNaoDeveCadastrarCorretoraCompartilhada() throws Exception {
+        mvc.perform(post("/corretoras").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"cnpj\":\"12345678000195\"}"))
                 .andExpect(status().isForbidden());
     }
 
@@ -236,10 +236,10 @@ class SegurancaIntegrationTest {
     }
 
     @Test
-    void userComJwtRealNaoDeveEscreverNemAdministrar() throws Exception {
+    void userComJwtRealNaoDeveExecutarOperacoesAdministrativas() throws Exception {
         String token = login();
-        mvc.perform(post("/carteiras/principal/aportes").header("Authorization", "Bearer " + token)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"valor\":100}"))
+        mvc.perform(put("/carteiras/{id}/saldo-conta", 1L).header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"saldoEmConta\":100}"))
                 .andExpect(status().isForbidden()).andExpect(jsonPath("$.status").value(403));
         mvc.perform(get("/api/usuarios").header("Authorization", "Bearer " + token)).andExpect(status().isForbidden());
         mvc.perform(post("/auth/register").header("Authorization", "Bearer " + token)
@@ -261,16 +261,53 @@ class SegurancaIntegrationTest {
     }
 
     @Test
-    void deveManterTokenEmitidoValidoAteExpirar() throws Exception {
+    void logoutMantemTokenDaContaAtivaComPapelOriginal() throws Exception {
         String token = login();
         var usuario = usuarios.findByEmailIgnoreCase("jwt@teste.local").orElseThrow();
         usuario.setPapel(PapelUsuario.ADMIN);
-        usuario.setAtivo(false);
         usuarios.save(usuario);
         mvc.perform(post("/auth/logout").header("Authorization", "Bearer " + token)).andExpect(status().isNoContent());
         mvc.perform(get("/auth/me").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.authorities[0]").value("ROLE_USER"));
+    }
+
+    @Test
+    void inativacaoRevogaSessoesAbertasInclusiveDepoisDeReativar() throws Exception {
+        var admin = new Usuario();
+        admin.setNome("Administrador de teste");
+        admin.setEmail("admin@teste.local");
+        admin.setSenhaHash(new BCryptPasswordEncoder().encode("senha-teste"));
+        admin.setPapel(PapelUsuario.ADMIN);
+        usuarios.save(admin);
+        String autorizacaoAdmin = "Bearer " + login(admin.getEmail());
+        String autorizacaoUsuario = "Bearer " + login();
+        String autorizacaoLegada = "Bearer " + emitirToken(properties.issuer(), Instant.now(),
+                Instant.now().plusSeconds(3600));
+        UUID id = usuarios.findByEmailIgnoreCase("jwt@teste.local").orElseThrow().getId();
+        String cadastro = """
+                {"nome":"Pessoa de teste","email":"jwt@teste.local","papel":"USER","ativo":%b}
+                """;
+        for (String autorizacao : List.of(autorizacaoUsuario, autorizacaoLegada)) {
+            mvc.perform(get("/auth/me").header("Authorization", autorizacao)).andExpect(status().isOk());
+        }
+
+        mvc.perform(put("/api/usuarios/{id}", id).header("Authorization", autorizacaoAdmin)
+                .contentType(MediaType.APPLICATION_JSON).content(cadastro.formatted(false)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.ativo").value(false));
+        for (String autorizacao : List.of(autorizacaoUsuario, autorizacaoLegada)) {
+            mvc.perform(get("/auth/me").header("Authorization", autorizacao)).andExpect(status().isUnauthorized());
+            mvc.perform(get("/corretoras").header("Authorization", autorizacao)).andExpect(status().isUnauthorized());
+        }
         requisitarLogin("jwt@teste.local", "senha-teste").andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/usuarios").header("Authorization", autorizacaoAdmin)).andExpect(status().isOk());
+
+        mvc.perform(put("/api/usuarios/{id}", id).header("Authorization", autorizacaoAdmin)
+                .contentType(MediaType.APPLICATION_JSON).content(cadastro.formatted(true)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.ativo").value(true));
+        for (String autorizacao : List.of(autorizacaoUsuario, autorizacaoLegada)) {
+            mvc.perform(get("/auth/me").header("Authorization", autorizacao)).andExpect(status().isUnauthorized());
+        }
+        mvc.perform(get("/auth/me").header("Authorization", "Bearer " + login())).andExpect(status().isOk());
     }
 
     @Test
@@ -305,7 +342,11 @@ class SegurancaIntegrationTest {
     }
 
     private String login() throws Exception {
-        var resultado = requisitarLogin("jwt@teste.local", "senha-teste").andExpect(status().isOk()).andReturn();
+        return login("jwt@teste.local");
+    }
+
+    private String login(String email) throws Exception {
+        var resultado = requisitarLogin(email, "senha-teste").andExpect(status().isOk()).andReturn();
         return mapper.readTree(resultado.getResponse().getContentAsString()).get("token").asText();
     }
 

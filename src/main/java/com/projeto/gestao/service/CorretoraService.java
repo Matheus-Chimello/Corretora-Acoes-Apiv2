@@ -4,10 +4,13 @@ import com.projeto.gestao.domain.model.Corretora;
 import com.projeto.gestao.domain.port.BuscaCepPort;
 import com.projeto.gestao.domain.port.ValidacaoCnpjPort;
 import com.projeto.gestao.repository.CorretoraRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.text.Normalizer;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
@@ -39,17 +42,16 @@ public class CorretoraService {
             throw new IllegalArgumentException("Corretora com este CNPJ já existe.");
         }
 
-        ValidacaoCnpjPort.CnpjInfo cnpjInfo = validacaoCnpjPort.getCnpjInfo(cnpjLimpo);
-        if (cnpjInfo == null) {
+        var consulta = validacaoCnpjPort.consultar(cnpjLimpo);
+        if (consulta == null) {
             throw new IllegalArgumentException("Não foi possível obter dados para este CNPJ na Brasil API.");
         }
 
-        boolean validadaCvm = validacaoCnpjPort.isValidAndMarketParticipant(cnpjLimpo)
-                || cnpjInfoIndicaParticipanteMercado(cnpjInfo);
-        if (!validadaCvm) {
+        if (!validadaNaConsulta(consulta)) {
             throw new IllegalArgumentException("O CNPJ informado nao foi validado como corretora ou participante do mercado.");
         }
 
+        var cnpjInfo = consulta.dados();
         Corretora corretora = new Corretora();
         corretora.setCnpj(cnpjLimpo);
         corretora.setRazaoSocial(cnpjInfo.razaoSocial());
@@ -57,7 +59,7 @@ public class CorretoraService {
         corretora.setEmail(cnpjInfo.email());
         corretora.setTelefone(cnpjInfo.telefone());
         corretora.setSituacaoCadastral(cnpjInfo.situacaoCadastral());
-        corretora.setValidadaNaCvm(validadaCvm);
+        corretora.registrarValidacao(true, consulta.fonte(), Instant.now());
         corretora.setDataCadastro(LocalDateTime.now());
 
         if (cnpjInfo.cep() == null || cnpjInfo.cep().isBlank()) {
@@ -76,6 +78,19 @@ public class CorretoraService {
         corretora.setUf(cepInfo.uf());
         corretora.setComplemento(cepInfo.complemento());
 
+        return corretoraRepository.save(corretora);
+    }
+
+    @Transactional
+    public Corretora revalidarCorretora(UUID id) {
+        var corretora = corretoraRepository.findByIdParaAtualizar(id).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "Corretora não encontrada."));
+        var consulta = validacaoCnpjPort.consultar(corretora.getCnpj());
+        if (consulta == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A consulta de CNPJ não retornou dados para revalidação.");
+        }
+        corretora.registrarValidacao(validadaNaConsulta(consulta), consulta.fonte(), Instant.now());
+        corretora.setSituacaoCadastral(consulta.dados().situacaoCadastral());
         return corretoraRepository.save(corretora);
     }
 
@@ -101,8 +116,8 @@ public class CorretoraService {
         return resto < 2 ? 0 : 11 - resto;
     }
 
-    public List<Corretora> listarTodas() {
-        return corretoraRepository.findAll();
+    public List<Corretora> listarVisiveis(boolean administrador) {
+        return administrador ? corretoraRepository.findAll() : corretoraRepository.findAllByValidadaNaCvmTrue();
     }
 
     public Optional<Corretora> buscarPorId(UUID id) {
@@ -111,6 +126,10 @@ public class CorretoraService {
 
     public Optional<Corretora> buscarPorCnpj(String cnpj) {
         return corretoraRepository.findByCnpj(cnpj.replaceAll("[^0-9]", ""));
+    }
+
+    private boolean validadaNaConsulta(ValidacaoCnpjPort.ConsultaCnpj consulta) {
+        return consulta.participanteMercado() || cnpjInfoIndicaParticipanteMercado(consulta.dados());
     }
 
     private boolean cnpjInfoIndicaParticipanteMercado(ValidacaoCnpjPort.CnpjInfo cnpjInfo) {

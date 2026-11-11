@@ -9,3 +9,7 @@
   suprima testes ou exclua codigo apenas para fazer a verificacao passar.
 - Se a cobertura estiver abaixo da meta, informe os resultados e as areas pendentes.
 - Consulte `docs/TESTES.md` para os comandos e os relatorios.
+- Apos concluir e validar alteracoes neste projeto, atualize a execucao local no
+  Docker automaticamente: reconstrua as imagens afetadas, recrie os containers
+  necessarios e confira a inicializacao e o acesso HTTP, sem pedir nova autorizacao.
+- Preserve os dados e volumes do banco durante as atualizacoes do Docker.

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="019-ampliar-tipo-transacao-h2" author="matheus" dbms="h2">
+        <comment>Alinha o H2 ao tamanho usado no PostgreSQL para registrar as transferencias.</comment>
+        <modifyDataType tableName="transacoes_carteira" columnName="tipo" newDataType="VARCHAR(30)"/>
+    </changeSet>
+</databaseChangeLog>

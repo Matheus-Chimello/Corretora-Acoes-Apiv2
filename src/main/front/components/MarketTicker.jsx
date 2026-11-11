@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { apiFetch } from '../services/api';
-import { isAuthenticated } from '../services/auth';
+import { apiFetch, getErrorMessage } from '../services/api';
+import { getCurrentUser } from '../services/auth';
 import { MARKET_TICKER_UPDATED_EVENT } from '../services/marketTicker';
 
 const FALLBACK_INDICATORS = [
-    { symbol: 'IBOV', value: '---', currency: 'BRL', updatedAt: null },
+    { symbol: 'MGLU3', value: '---', currency: 'BRL', updatedAt: null },
     { symbol: 'PETR4', value: '---', currency: 'BRL', updatedAt: null },
     { symbol: 'VALE3', value: '---', currency: 'BRL', updatedAt: null },
     { symbol: 'ITUB4', value: '---', currency: 'BRL', updatedAt: null }
@@ -37,11 +37,14 @@ const IndicatorSet = ({ indicators, hidden = false }) => (
 
 const MarketTicker = () => {
     const [indicators, setIndicators] = useState(FALLBACK_INDICATORS);
+    const [message, setMessage] = useState('');
 
     useEffect(() => {
         let active = true;
+        let lastRequest = 0;
+        let lastIdentity = getCurrentUser()?.token;
 
-        const updateIndicators = (actions) => {
+        const updateIndicators = (actions, request) => {
             const updatedIndicators = (actions || [])
                 .filter((acao) => acao.cotacaoAtual !== null && acao.cotacaoAtual !== undefined)
                 .sort((first, second) => first.ticker.localeCompare(second.ticker, 'pt-BR'))
@@ -52,50 +55,38 @@ const MarketTicker = () => {
                     updatedAt: acao.dataHoraCotacao
                 }));
 
-            if (active && updatedIndicators.length > 0) {
+            if (active && request === lastRequest && updatedIndicators.length > 0) {
                 setIndicators(updatedIndicators);
             }
         };
 
         const loadQuotes = async () => {
-            if (!isAuthenticated()) {
-                if (active) setIndicators(FALLBACK_INDICATORS);
-                return;
+            const request = ++lastRequest;
+            const currentUser = getCurrentUser();
+            if (currentUser?.token !== lastIdentity) {
+                setIndicators(FALLBACK_INDICATORS);
+                setMessage('');
+                lastIdentity = currentUser?.token;
             }
-
             try {
-                const response = await apiFetch('/acoes');
-                if (!response.ok) throw new Error('Não foi possível carregar as cotações.');
-                updateIndicators(await response.json());
+                const response = await apiFetch(currentUser ? '/acoes' : '/api/mercado/cotacoes');
+                if (!response.ok) throw new Error(await getErrorMessage(response, 'Não foi possível carregar as cotações.'));
+                let actions = await response.json();
+                if (currentUser && actions.length === 0) {
+                    const marketResponse = await apiFetch('/api/mercado/cotacoes');
+                    if (!marketResponse.ok) throw new Error(await getErrorMessage(marketResponse, 'Não foi possível carregar as cotações.'));
+                    actions = await marketResponse.json();
+                }
+                updateIndicators(actions, request);
+                if (active && request === lastRequest) setMessage('');
             } catch (error) {
-                // The ticker keeps the last confirmed values while the API is unavailable.
+                if (active && request === lastRequest) setMessage(error.message);
             }
         };
 
-        const refreshQuotes = async () => {
-            if (!isAuthenticated()) {
-                if (active) setIndicators(FALLBACK_INDICATORS);
-                return;
-            }
-
-            try {
-                const response = await apiFetch('/acoes/atualizar-cotacoes', { method: 'PUT' });
-                if (!response.ok) throw new Error('Não foi possível atualizar as cotações.');
-                updateIndicators(await response.json());
-            } catch (error) {
-                loadQuotes();
-            }
-        };
-
-        refreshQuotes();
+        loadQuotes();
         const refreshInterval = window.setInterval(loadQuotes, 30000);
-        const onTickerUpdate = (event) => {
-            if (event.detail?.refresh) {
-                refreshQuotes();
-                return;
-            }
-            loadQuotes();
-        };
+        const onTickerUpdate = () => loadQuotes();
         window.addEventListener(MARKET_TICKER_UPDATED_EVENT, onTickerUpdate);
 
         return () => {
@@ -106,8 +97,9 @@ const MarketTicker = () => {
     }, []);
 
     return (
-        <section className="market-ticker" aria-label="Cotações do catálogo">
+        <section className={`market-ticker${message ? ' market-ticker--error' : ''}`} aria-label="Cotações do catálogo">
             <div className="market-ticker__label">Mercado</div>
+            {message && <span role="status" className="market-ticker__status">{message}</span>}
             <div className="market-ticker__viewport">
                 <div className="market-ticker__track">
                     <IndicatorSet indicators={indicators} />

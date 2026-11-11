@@ -1,12 +1,9 @@
-import { apiFetch, apiUrl } from './api';
+import { apiFetch, apiUrl, CONNECTION_ERROR_MESSAGE, getErrorMessage } from './api';
 import { notifyMarketTickerUpdate } from './marketTicker';
 
 export const AUTH_STORAGE_KEY = 'gestaoFinanceiraUser';
-
-const getErrorMessage = async (response, fallbackMessage) => {
-    const data = await response.json().catch(() => null);
-    return data?.message || data?.detail || fallbackMessage;
-};
+export const AUTH_SESSION_ENDED_EVENT = 'auth-session-ended';
+export const AUTH_SESSION_ENDED_MESSAGE = 'Sua sessão expirou ou é inválida. Faça login novamente.';
 
 const saveSession = (user) => {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
@@ -19,13 +16,13 @@ const requestLogin = (email, password) => fetch(apiUrl('/auth/login'), {
         'Content-Type': 'application/json'
     },
     body: JSON.stringify({ email, password })
-});
+}).catch(() => { throw new Error(CONNECTION_ERROR_MESSAGE); });
 
 export const login = async (email, password) => {
     const response = await requestLogin(email, password);
 
     if (!response.ok) {
-        throw new Error(await getErrorMessage(response, 'Email ou senha invalidos.'));
+        throw new Error(await getErrorMessage(response, 'Email ou senha invalidos.', { login: true }));
     }
 
     const user = await response.json();
@@ -71,3 +68,9 @@ export const getCurrentUser = () => {
 };
 
 export const isAuthenticated = () => Boolean(getCurrentUser());
+
+export const encerrarSessaoInvalida = (token) => {
+    if (getCurrentUser()?.token !== token) return;
+    logout();
+    window.dispatchEvent(new Event(AUTH_SESSION_ENDED_EVENT));
+};

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { login } from '../services/auth';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { AUTH_SESSION_ENDED_MESSAGE, login } from '../services/auth';
 
 const Login = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [formData, setFormData] = useState({
         email: '',
         password: ''
     });
-    const [mensagem, setMensagem] = useState('');
+    const [mensagem, setMensagem] = useState(location.state?.sessaoEncerrada ? AUTH_SESSION_ENDED_MESSAGE : '');
+    const [entrando, setEntrando] = useState(false);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -18,12 +20,15 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setMensagem('');
+        setEntrando(true);
 
         try {
             await login(formData.email, formData.password);
             navigate('/', { replace: true });
         } catch (error) {
             setMensagem(error.message);
+        } finally {
+            setEntrando(false);
         }
     };
 
@@ -75,8 +80,8 @@ const Login = () => {
                             />
                         </div>
 
-                        <button type="submit" className="btn btn-primary login-button">
-                            Entrar
+                        <button type="submit" className="btn btn-primary login-button" disabled={entrando}>
+                            {entrando ? 'Entrando...' : 'Entrar'}
                         </button>
                     </form>
 
@@ -85,7 +90,7 @@ const Login = () => {
                     </div>
 
                     {mensagem && (
-                        <p className="alert alert-error">
+                        <p role="alert" className="alert alert-error">
                             {mensagem}
                         </p>
                     )}

@@ -2,6 +2,7 @@ package com.projeto.gestao.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import com.projeto.gestao.repository.UsuarioRepository;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -14,6 +15,8 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
@@ -39,6 +42,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/mercado/cotacoes").permitAll()
                         // Arquivos da tela de login precisam carregar antes da autenticacao.
                         .requestMatchers(HttpMethod.GET, "/", "/index.html", "/login", "/dashboard", "/assets/**", "/favicon.ico").permitAll()
                         .anyRequest().authenticated())
@@ -92,9 +96,19 @@ public class SecurityConfig {
     public JwtEncoder jwtEncoder(SecretKey key) { return new NimbusJwtEncoder(new ImmutableSecret<>(key)); }
 
     @Bean
-    public JwtDecoder jwtDecoder(SecretKey key, JwtProperties properties) {
+    public JwtDecoder jwtDecoder(SecretKey key, JwtProperties properties, UsuarioRepository usuarios) {
         var decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
-        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(properties.issuer()));
+        var validarJwt = JwtValidators.createDefaultWithIssuer(properties.issuer());
+        decoder.setJwtValidator(jwt -> {
+            var resultado = validarJwt.validate(jwt);
+            if (resultado.hasErrors()) return resultado;
+
+            boolean sessaoAtiva = usuarios.findByEmailIgnoreCase(jwt.getSubject())
+                    .filter(usuario -> usuario.aceitaSessao(jwt.getClaimAsString("sessao")))
+                    .isPresent();
+            return sessaoAtiva ? resultado : OAuth2TokenValidatorResult.failure(
+                    new OAuth2Error("invalid_token", "Sessão encerrada.", null));
+        });
         return decoder;
     }
 }

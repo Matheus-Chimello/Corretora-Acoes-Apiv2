@@ -32,7 +32,7 @@ class UsuarioServiceTest {
     @Test
     void deveManterProprioEmailNaAtualizacaoSemAlterarHash() {
         var usuario = usuario("pessoa@teste.local");
-        when(usuarios.findById(usuario.getId())).thenReturn(Optional.of(usuario));
+        when(usuarios.findByIdParaAtualizar(usuario.getId())).thenReturn(Optional.of(usuario));
         when(usuarios.findByEmailIgnoreCase(usuario.getEmail())).thenReturn(Optional.of(usuario));
         when(usuarios.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var response = service.update(usuario.getId(), new UsuarioUpdateRequest(" Nome novo ",
@@ -48,7 +48,7 @@ class UsuarioServiceTest {
     void deveRecusarEmailDeOutraPessoaNaAtualizacao() {
         var usuario = usuario("pessoa@teste.local");
         var outro = usuario("outra@teste.local");
-        when(usuarios.findById(usuario.getId())).thenReturn(Optional.of(usuario));
+        when(usuarios.findByIdParaAtualizar(usuario.getId())).thenReturn(Optional.of(usuario));
         when(usuarios.findByEmailIgnoreCase(outro.getEmail())).thenReturn(Optional.of(outro));
         assertThatThrownBy(() -> service.update(usuario.getId(), new UsuarioUpdateRequest(
                 "Pessoa", outro.getEmail(), PapelUsuario.USER, true)))
@@ -60,7 +60,7 @@ class UsuarioServiceTest {
     @Test
     void devePermitirTrocarParaEmailDisponivel() {
         var usuario = usuario("pessoa@teste.local");
-        when(usuarios.findById(usuario.getId())).thenReturn(Optional.of(usuario));
+        when(usuarios.findByIdParaAtualizar(usuario.getId())).thenReturn(Optional.of(usuario));
         when(usuarios.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         var response = service.update(usuario.getId(), new UsuarioUpdateRequest(
                 "Pessoa", "nova@teste.local", PapelUsuario.USER, true));

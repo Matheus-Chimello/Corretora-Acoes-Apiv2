@@ -1,7 +1,9 @@
 package com.projeto.gestao.domain.model;
 
 import jakarta.persistence.*;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -31,6 +33,8 @@ public class Corretora {
 
     private String situacaoCadastral;
     private Boolean validadaNaCvm;
+    private LocalDateTime ultimaValidacaoEm;
+    private String fonteValidacao;
     
     private LocalDateTime dataCadastro;
 
@@ -81,6 +85,17 @@ public class Corretora {
 
     public Boolean getValidadaNaCvm() { return validadaNaCvm; }
     public void setValidadaNaCvm(Boolean validadaNaCvm) { this.validadaNaCvm = validadaNaCvm; }
+
+    public Instant getUltimaValidacaoEm() {
+        return ultimaValidacaoEm == null ? null : ultimaValidacaoEm.toInstant(ZoneOffset.UTC);
+    }
+    public String getFonteValidacao() { return fonteValidacao; }
+
+    public void registrarValidacao(boolean validada, String fonte, Instant instante) {
+        this.validadaNaCvm = validada;
+        this.fonteValidacao = fonte;
+        this.ultimaValidacaoEm = LocalDateTime.ofInstant(instante, ZoneOffset.UTC);
+    }
 
     public LocalDateTime getDataCadastro() { return dataCadastro; }
     public void setDataCadastro(LocalDateTime dataCadastro) { this.dataCadastro = dataCadastro; }

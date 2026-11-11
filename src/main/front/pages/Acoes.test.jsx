@@ -6,6 +6,7 @@ import '@testing-library/jest-dom/vitest';
 import Acoes from './Acoes';
 import { http } from '../test/http';
 import { marketUpdates } from '../test/http';
+import { AUTH_STORAGE_KEY } from '../services/auth';
 
 
 const ativo = { id: '1', ticker: 'PETR4', nomeEmpresa: 'Petrobras', mercado: 'BR', cotacaoAtual: 30, moeda: 'BRL' };
@@ -40,7 +41,8 @@ describe('catalogo de acoes', () => {
         expect(screen.getByRole('button', { name: 'Atualizar cotações' })).toBeDisabled();
     });
 
-    it('cadastra um ativo americano e atualiza o catalogo', async () => {
+    it('cadastra um ativo americano no catalogo de USER', async () => {
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token: 'token-user', role: 'USER' }));
         http.mockResolvedValue(resposta([ativo]));
         render(<Acoes />);
         await screen.findByRole('cell', { name: 'Petrobras' });
@@ -50,6 +52,8 @@ describe('catalogo de acoes', () => {
         fireEvent.submit(form);
         expect(await screen.findByText('Ativo cadastrado no catálogo com sucesso.')).toBeInTheDocument();
         expect(http).toHaveBeenCalledWith('/acoes', expect.objectContaining({ method: 'POST', body: JSON.stringify({ ticker: 'IBM', mercado: 'US' }) }));
+        const [, envio] = http.mock.calls.find(([rota, opcoes]) => rota === '/acoes' && opcoes.method === 'POST');
+        expect(envio.headers.get('Authorization')).toBe('Bearer token-user');
         expect(marketUpdates).toHaveBeenCalled();
     });
 
@@ -61,6 +65,15 @@ describe('catalogo de acoes', () => {
         expect(await screen.findByText('Ativo inválido')).toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: 'Atualizar cotações' }));
         expect(await screen.findByText('Serviço indisponível')).toBeInTheDocument();
+    });
+
+    it('explica a falta de permissao ao atualizar cotacoes', async () => {
+        http.mockResolvedValueOnce(resposta([ativo])).mockResolvedValueOnce(new Response('{}', { status: 403 }));
+        render(<Acoes />);
+        await screen.findByRole('cell', { name: 'Petrobras' });
+        fireEvent.click(screen.getByRole('button', { name: 'Atualizar cotações' }));
+        expect(await screen.findByRole('alert')).toHaveTextContent('Você não tem permissão para realizar esta ação.');
+        expect(screen.queryByText(/cotação atualizada/)).not.toBeInTheDocument();
     });
 
     it('filtra ticker, empresa e data de atualizacao', async () => {

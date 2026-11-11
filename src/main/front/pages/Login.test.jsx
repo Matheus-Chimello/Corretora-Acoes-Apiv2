@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import Login from './Login';
@@ -40,5 +40,28 @@ describe('tela de acesso', () => {
         abrir();
         expect(screen.queryByRole('button', { name: 'Cadastre-se' })).not.toBeInTheDocument();
         expect(screen.getByText('Solicite seu acesso ao administrador.')).toBeInTheDocument();
+    });
+
+    it.each([
+        ['servidor indisponivel', () => Promise.resolve(new Response('<html>falha</html>', { status: 503 })), 'O servidor está indisponível no momento. Tente novamente em instantes.'],
+        ['sem conexao', () => Promise.reject(new TypeError('Failed to fetch')), 'Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.']
+    ])('explica o erro de login: %s', async (_caso, responder, mensagem) => {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        http.mockImplementation(responder);
+        abrir();
+        fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+        expect(await screen.findByRole('alert')).toHaveTextContent(mensagem);
+        expect(getCurrentUser()).toBeNull();
+    });
+
+    it('evita novo envio enquanto autentica e atualiza cotacoes', async () => {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        let concluirLogin;
+        http.mockReturnValue(new Promise((resolve) => { concluirLogin = resolve; }));
+        abrir();
+        fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));
+        expect(screen.getByRole('button', { name: 'Entrando...' })).toBeDisabled();
+        await act(async () => concluirLogin({ ok: true, json: async () => ({ token: 'token-user', cotacoesAtualizadas: true }) }));
+        expect(await screen.findByText('Página inicial')).toBeInTheDocument();
     });
 });

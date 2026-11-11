@@ -5,6 +5,7 @@ import com.projeto.gestao.domain.dto.CorretoraResponse;
 import com.projeto.gestao.domain.model.Usuario;
 import com.projeto.gestao.service.AutenticacaoService;
 import com.projeto.gestao.service.CorretoraService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.HttpHeaders;
@@ -46,12 +47,24 @@ public class CorretoraController {
                 .body(CorretoraResponse.from(corretoraService.cadastrarCorretora(payload.cnpj())));
     }
 
-    @GetMapping
-    public ResponseEntity<List<CorretoraResponse>> listarCorretoras(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao
+    @PostMapping("/{id}/revalidar")
+    @PreAuthorize("hasRole('ADMIN')")
+    public CorretoraResponse revalidarCorretora(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
+            @PathVariable UUID id
     ) {
         usuarioAutenticado(autorizacao);
-        return ResponseEntity.ok(corretoraService.listarTodas().stream().map(CorretoraResponse::from).toList());
+        return CorretoraResponse.from(corretoraService.revalidarCorretora(id));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<CorretoraResponse>> listarCorretoras(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
+            HttpServletRequest request
+    ) {
+        usuarioAutenticado(autorizacao);
+        var corretoras = corretoraService.listarVisiveis(request.isUserInRole("ADMIN"));
+        return ResponseEntity.ok(corretoras.stream().map(CorretoraResponse::from).toList());
     }
 
     @GetMapping("/{id}")

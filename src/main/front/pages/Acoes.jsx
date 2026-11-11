@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import Navbar from '../components/Navbar';
-import { apiFetch } from '../services/api';
+import { apiFetch, getErrorMessage } from '../services/api';
 import { correspondeAoFiltro, opcoesUnicas } from '../services/filtros';
 import { notifyMarketTickerUpdate } from '../services/marketTicker';
 
@@ -16,11 +16,6 @@ const toDateInputValue = (value) => {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${date.getFullYear()}-${month}-${day}`;
-};
-
-const getErrorMessage = async (response, fallback) => {
-    const data = await response.json().catch(() => ({}));
-    return data.message || fallback;
 };
 
 const Acoes = () => {
@@ -159,7 +154,7 @@ const Acoes = () => {
                     </form>
                 </section>
 
-                {mensagem.texto && <p className={`alert ${mensagem.tipo === 'error' ? 'alert-error' : 'alert-success'}`}>{mensagem.texto}</p>}
+                {mensagem.texto && <p role="alert" className={`alert ${mensagem.tipo === 'error' ? 'alert-error' : 'alert-success'}`}>{mensagem.texto}</p>}
 
                 <section className="table-container">
                     <div className="table-heading">

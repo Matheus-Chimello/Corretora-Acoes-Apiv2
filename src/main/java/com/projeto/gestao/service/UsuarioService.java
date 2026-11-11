@@ -13,6 +13,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.List;
 
@@ -32,7 +33,7 @@ public class UsuarioService {
     }
 
     @Transactional(readOnly = true)
-    public UsuarioResponse findById(UUID id) { return UsuarioResponse.from(findEntity(id)); }
+    public UsuarioResponse findById(UUID id) { return UsuarioResponse.from(exigirUsuario(usuarios.findById(id))); }
 
     @Transactional
     public UsuarioResponse create(UsuarioCreateRequest request) {
@@ -49,7 +50,7 @@ public class UsuarioService {
 
     @Transactional
     public UsuarioResponse update(UUID id, UsuarioUpdateRequest request) {
-        var usuario = findEntity(id);
+        var usuario = exigirUsuario(usuarios.findByIdParaAtualizar(id));
         String email = request.email().trim().toLowerCase(Locale.ROOT);
         validarEmailDisponivel(email, id);
         usuario.setNome(request.nome().trim());
@@ -61,13 +62,13 @@ public class UsuarioService {
 
     @Transactional
     public void alterarSenha(UUID id, AlterarSenhaRequest request) {
-        var usuario = findEntity(id);
+        var usuario = exigirUsuario(usuarios.findByIdParaAtualizar(id));
         usuario.setSenhaHash(passwordEncoder.encode(request.password()));
         usuarios.save(usuario);
     }
 
-    private Usuario findEntity(UUID id) {
-        return usuarios.findById(id).orElseThrow(() -> new ResponseStatusException(
+    private Usuario exigirUsuario(Optional<Usuario> usuario) {
+        return usuario.orElseThrow(() -> new ResponseStatusException(
                 HttpStatus.NOT_FOUND, "Usuario nao encontrado."));
     }
 
