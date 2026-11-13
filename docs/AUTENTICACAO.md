@@ -55,6 +55,10 @@ Ao entrar com uma conta ADMIN, o frontend abre **Administracao** em
 `http://localhost:8082/#/admin/usuarios`. O painel permite buscar e filtrar contas,
 cadastrar usuarios, editar nome/email/perfil, ativar/desativar contas e alterar senhas
 com confirmacao. A situacao da conta e alterada na opcao **Editar**, em **Conta ativa**.
+A alteracao de perfil e a inativacao exigem pelo menos um administrador ativo
+apos a operacao.
+O botao **Historico administrativo** mostra data, autor, alvo e resultado das
+alteracoes de perfil, inativacoes e consultas de revalidacao de corretoras.
 O menu lateral de ADMIN tem duas opcoes independentes: **Administracao** e
 **Corretoras**. Em `/admin/corretoras`, o administrador cadastra por CNPJ e
 consulta a lista completa. A acao **Revalidar** faz uma nova consulta a
@@ -68,6 +72,11 @@ USER recebe uma mensagem de acesso restrito ao tentar abrir a URL administrativa
 a API continua validando todas as permissoes. Falhas aparecem no proprio formulario,
 e uma operacao so e confirmada apos a resposta da API. Os dialogs suportam Escape
 e navegacao com Tab, sem perder o foco para o fundo da pagina.
+
+### Minha conta
+
+Os dois perfis podem abrir **Minha conta** no rodape do menu lateral e alterar
+a propria senha. A API valida a senha atual e salva a nova senha da conta autenticada.
 
 ### Ambiente
 
@@ -120,13 +129,12 @@ authorities. O payload e legivel em Base64: assinatura garante integridade,
 mas nao sigilo. Senhas e chaves nunca devem entrar nele.
 
 A API usa `STATELESS` e verifica a situacao da conta a cada requisicao com JWT.
-Inativar uma conta invalida os tokens que ja foram emitidos para ela. O frontend
-descarta a sessao e volta ao login assim que recebe a rejeicao da API. Depois de
-reativar a conta, o usuario precisa entrar novamente.
+Inativar uma conta ou alterar seu perfil invalida os tokens ja emitidos para ela.
+O frontend descarta a sessao e volta ao login assim que recebe a rejeicao da API.
+O proximo login usa o perfil atual e exige uma conta ativa.
 
 No logout manual, o cliente descarta seu token localmente. O endpoint
-`/auth/logout` confirma a identidade e retorna 204. As permissoes de papel dos
-tokens em uso valem ate a expiracao.
+`/auth/logout` confirma a identidade e retorna 204.
 
 ## Testes e cobertura
 

@@ -11,6 +11,7 @@ import com.projeto.gestao.repository.CarteiraRepository;
 import com.projeto.gestao.repository.CorretoraRepository;
 import com.projeto.gestao.repository.PosicaoCarteiraRepository;
 import com.projeto.gestao.repository.TransacaoCarteiraRepository;
+import com.projeto.gestao.repository.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class CarteiraServiceTest {
@@ -49,6 +51,9 @@ class CarteiraServiceTest {
     private TransacaoCarteiraRepository transacaoCarteiraRepository;
 
     @Mock
+    private UsuarioRepository usuarioRepository;
+
+    @Mock
     private AcaoRepository acaoRepository;
 
     @Mock
@@ -62,9 +67,11 @@ class CarteiraServiceTest {
     @BeforeEach
     void setUp() {
         var acaoService = new AcaoService(acaoRepository, cotacaoAcaoPort);
-        carteiraService = new CarteiraService(carteiraRepository, posicaoCarteiraRepository, acaoService, corretoraRepository, transacaoCarteiraRepository);
+        carteiraService = new CarteiraService(carteiraRepository, posicaoCarteiraRepository, acaoService,
+                corretoraRepository, transacaoCarteiraRepository, usuarioRepository);
         usuario = new Usuario();
         usuario.setId(UUID.randomUUID());
+        lenient().when(usuarioRepository.findByIdParaAtualizar(usuario.getId())).thenReturn(Optional.of(usuario));
         carteira = carteira(new BigDecimal("100.00"));
         carteira.setId(7L);
     }

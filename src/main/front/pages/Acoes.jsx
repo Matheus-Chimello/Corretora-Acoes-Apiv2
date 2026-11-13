@@ -21,6 +21,7 @@ const toDateInputValue = (value) => {
 const Acoes = () => {
     const [catalogo, setCatalogo] = useState([]);
     const [cadastro, setCadastro] = useState({ ticker: '', mercado: 'BR' });
+    const [cadastrando, setCadastrando] = useState(false);
     const [mensagem, setMensagem] = useState({ tipo: '', texto: '' });
     const [atualizandoCotacoes, setAtualizandoCotacoes] = useState(false);
     const [filtrosTabela, setFiltrosTabela] = useState({
@@ -48,7 +49,9 @@ const Acoes = () => {
 
     const cadastrarAcao = async (event) => {
         event.preventDefault();
+        if (cadastrando) return;
         setMensagem({ tipo: '', texto: '' });
+        setCadastrando(true);
 
         try {
             const response = await apiFetch('/acoes', {
@@ -57,6 +60,19 @@ const Acoes = () => {
                 body: JSON.stringify(cadastro)
             });
             if (!response.ok) {
+                if (response.status === 400) {
+                    const erro = await response.clone().json().catch(() => null);
+                    const mercado = erro?.mercadoSugerido;
+                    if (mercado === 'US' || mercado === 'BR') {
+                        const [moeda, nomeMercado] = mercado === 'US' ? ['USD', 'EUA'] : ['BRL', 'Brasil'];
+                        setCadastro(atual => ({ ...atual, mercado }));
+                        setMensagem({
+                            tipo: 'warning',
+                            texto: `A cotação veio em ${moeda}. Confira o mercado ${nomeMercado} e confirme o cadastro.`
+                        });
+                        return;
+                    }
+                }
                 throw new Error(await getErrorMessage(response, 'Não foi possível cadastrar a ação.'));
             }
 
@@ -66,7 +82,14 @@ const Acoes = () => {
             carregarDados();
         } catch (error) {
             setMensagem({ tipo: 'error', texto: error.message });
+        } finally {
+            setCadastrando(false);
         }
+    };
+
+    const atualizarCadastro = (campo, valor) => {
+        setCadastro(atual => ({ ...atual, [campo]: valor }));
+        if (mensagem.tipo === 'warning') setMensagem({ tipo: '', texto: '' });
     };
 
     const atualizarCotacoes = async () => {
@@ -128,33 +151,39 @@ const Acoes = () => {
                     <h3>Cadastrar Ativo no Catálogo</h3>
                     <form onSubmit={cadastrarAcao} className="app-form">
                         <div className="field-group">
-                            <label>Ticker</label>
+                            <label htmlFor="ticker-cadastro">Ticker</label>
                             <input
+                                id="ticker-cadastro"
                                 type="text"
                                 value={cadastro.ticker}
-                                onChange={(event) => setCadastro({ ...cadastro, ticker: event.target.value })}
+                                onChange={(event) => atualizarCadastro('ticker', event.target.value)}
                                 placeholder="Ex: PETR4"
                                 className="form-input"
+                                disabled={cadastrando}
                             />
                         </div>
                         <div className="field-group">
-                            <label>Mercado</label>
+                            <label htmlFor="mercado-cadastro">Mercado</label>
                             <select
+                                id="mercado-cadastro"
                                 value={cadastro.mercado}
-                                onChange={(event) => setCadastro({ ...cadastro, mercado: event.target.value })}
+                                onChange={(event) => atualizarCadastro('mercado', event.target.value)}
                                 className="form-input"
+                                disabled={cadastrando}
                             >
                                 <option value="BR">Brasil</option>
                                 <option value="US">EUA</option>
                             </select>
                         </div>
                         <div className="form-actions">
-                            <button type="submit" className="btn btn-primary">Cadastrar ativo</button>
+                            <button type="submit" className="btn btn-primary" disabled={cadastrando}>
+                                {cadastrando ? 'Consultando cotação...' : 'Cadastrar ativo'}
+                            </button>
                         </div>
                     </form>
                 </section>
 
-                {mensagem.texto && <p role="alert" className={`alert ${mensagem.tipo === 'error' ? 'alert-error' : 'alert-success'}`}>{mensagem.texto}</p>}
+                {mensagem.texto && <p role="alert" className={`alert alert-${mensagem.tipo}`}>{mensagem.texto}</p>}
 
                 <section className="table-container">
                     <div className="table-heading">

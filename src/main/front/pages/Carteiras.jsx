@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import Navbar from '../components/Navbar';
+import PrivacyToggle, { VALOR_OCULTO } from '../components/PrivacyToggle';
 import { apiFetch, getErrorMessage } from '../services/api';
 import { getNomeCorretora } from '../services/corretoras';
 import { correspondeAoFiltro, opcoesUnicas } from '../services/filtros';
@@ -37,13 +38,15 @@ const isBrazilianMarket = (mercado) => mercado === 'BR';
 
 const hasFractionalQuantity = (quantidade) => !Number.isInteger(Number(quantidade));
 
-const Carteiras = () => {
+const Carteiras = ({ modoPrivacidade = false, aoAlternarPrivacidade }) => {
     const [carteira, setCarteira] = useState(null);
     const [posicoes, setPosicoes] = useState([]);
     const [catalogo, setCatalogo] = useState([]);
     const [corretoras, setCorretoras] = useState([]);
     const [transacoes, setTransacoes] = useState([]);
     const [aporte, setAporte] = useState('');
+    const [moedaAporte, setMoedaAporte] = useState('BRL');
+    const [aportando, setAportando] = useState(false);
     const [compra, setCompra] = useState({ acaoId: '', corretoraId: '', quantidade: '1', valorUnitario: '' });
     const [venda, setVenda] = useState({ posicaoId: '', quantidade: '', valorUnitario: '' });
     const [transferencia, setTransferencia] = useState({ posicaoId: '', corretoraDestinoId: '', quantidade: '' });
@@ -105,7 +108,9 @@ const Carteiras = () => {
 
     const realizarAporte = async (event) => {
         event.preventDefault();
+        if (aportando) return;
         setMensagem({ tipo: '', texto: '' });
+        setAportando(true);
 
         try {
             if (Number(aporte) <= 0) {
@@ -114,7 +119,7 @@ const Carteiras = () => {
             const response = await apiFetch('/carteiras/principal/aportes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ valor: aporte })
+                body: JSON.stringify({ valor: aporte, moeda: moedaAporte })
             });
             if (!response.ok) {
                 throw new Error(await getErrorMessage(response, 'Não foi possível registrar o aporte.'));
@@ -125,6 +130,8 @@ const Carteiras = () => {
             carregarDados();
         } catch (error) {
             setMensagem({ tipo: 'error', texto: error.message });
+        } finally {
+            setAportando(false);
         }
     };
 
@@ -193,7 +200,7 @@ const Carteiras = () => {
         setTransferencia({
             posicaoId: posicao.posicaoId,
             corretoraDestinoId: '',
-            quantidade: String(posicao.quantidadeTotal)
+            quantidade: modoPrivacidade ? '' : String(posicao.quantidadeTotal)
         });
         setTransferenciaAberta(true);
     };
@@ -300,6 +307,12 @@ const Carteiras = () => {
     const valorUnitarioCompra = compra.valorUnitario || acaoEmCompra?.cotacaoAtual || 0;
     const totalCompra = Number(compra.quantidade || 0) * Number(valorUnitarioCompra || 0);
     const totalVenda = Number(venda.quantidade || 0) * Number(venda.valorUnitario || 0);
+    const exibirValor = (valor, moeda) => modoPrivacidade ? VALOR_OCULTO : formatCurrency(valor, moeda);
+    const exibirQuantidade = (quantidade) => modoPrivacidade ? VALOR_OCULTO : quantidade;
+    const exibirPosicao = (posicao) => {
+        const descricao = `${posicao.ticker} - ${getNomeCorretora(posicao.corretoraRelacionada)}`;
+        return modoPrivacidade ? descricao : `${descricao} (${posicao.quantidadeTotal} disponível)`;
+    };
     const atualizarFiltroPosicoes = (campo, valor) => {
         setFiltrosPosicoes((filtrosAtuais) => ({ ...filtrosAtuais, [campo]: valor }));
     };
@@ -351,26 +364,45 @@ const Carteiras = () => {
 
     return (
         <div className="container">
-            <Navbar title="Minha Carteira" />
+            <Navbar title="Minha Carteira" titleAction={aoAlternarPrivacidade && (
+                <PrivacyToggle ativo={modoPrivacidade} aoAlternar={aoAlternarPrivacidade} />
+            )} />
 
             <main className="page-content">
                 <section className="form-panel">
                     <h3>Adicionar Saldo</h3>
-                    <form onSubmit={realizarAporte} className="app-form search-form">
+                    {carteira && (
+                        <div className="wallet-cash" role="group" aria-label="Saldos disponíveis">
+                            <div><span>Saldo em reais</span><strong>{exibirValor(carteira.saldoEmConta, 'BRL')}</strong></div>
+                            <div><span>Saldo em dólares</span><strong>{exibirValor(carteira.saldoEmDolar, 'USD')}</strong></div>
+                        </div>
+                    )}
+                    <form onSubmit={realizarAporte} className="app-form search-form aporte-form">
                         <div className="field-group">
-                            <label>Valor do aporte</label>
+                            <label htmlFor="moeda-aporte">Moeda do aporte</label>
+                            <select id="moeda-aporte" value={moedaAporte} className="form-input"
+                                onChange={(event) => setMoedaAporte(event.target.value)} disabled={isLoading || aportando}>
+                                <option value="BRL">Real (BRL)</option>
+                                <option value="USD">Dólar (USD)</option>
+                            </select>
+                        </div>
+                        <div className="field-group">
+                            <label htmlFor="valor-aporte">Valor do aporte</label>
                             <input
+                                id="valor-aporte"
                                 type="number"
                                 value={aporte}
                                 onChange={(event) => setAporte(event.target.value)}
                                 className="form-input"
                                 min="0.01"
                                 step="0.01"
-                                disabled={isLoading}
+                                disabled={isLoading || aportando}
                             />
                         </div>
                         <div className="form-actions">
-                            <button type="submit" className="btn btn-primary" disabled={isLoading || !carteira}>Adicionar saldo</button>
+                            <button type="submit" className="btn btn-primary" disabled={isLoading || aportando || !carteira}>
+                                {aportando ? 'Adicionando saldo...' : 'Adicionar saldo'}
+                            </button>
                         </div>
                     </form>
                 </section>
@@ -436,7 +468,7 @@ const Carteiras = () => {
                             <label>Valor total</label>
                             <input
                                 type="text"
-                                value={formatCurrency(totalCompra, acaoEmCompra?.moeda)}
+                                value={exibirValor(totalCompra, acaoEmCompra?.moeda)}
                                 className="form-input"
                                 readOnly
                             />
@@ -517,13 +549,13 @@ const Carteiras = () => {
                                     <td>{acao.nomeEmpresa || '---'}</td>
                                     <td>{getNomeCorretora(acao.corretoraRelacionada)}</td>
                                     <td>{acao.mercado}</td>
-                                    <td className="table-number">{acao.quantidadeTotal}</td>
-                                    <td className="price table-number">{formatCurrency(acao.precoMedio, acao.moeda)}</td>
+                                    <td className="table-number">{exibirQuantidade(acao.quantidadeTotal)}</td>
+                                    <td className="price table-number">{exibirValor(acao.precoMedio, acao.moeda)}</td>
                                     <td className="price table-number">{formatCurrency(acao.cotacaoAtual, acao.moeda)}</td>
-                                    <td className="price table-number">{formatCurrency(acao.posicao, acao.moeda)}</td>
-                                    <td className={`table-number performance-cell ${performanceClass(acao.lucroPrejuizo)}`}>
-                                        <strong>{formatCurrency(acao.lucroPrejuizo, acao.moeda)}</strong>
-                                        <small>{formatPercentage(acao.rentabilidadePercentual)}</small>
+                                    <td className="price table-number">{exibirValor(acao.posicao, acao.moeda)}</td>
+                                    <td className={`table-number performance-cell ${modoPrivacidade ? '' : performanceClass(acao.lucroPrejuizo)}`}>
+                                        <strong>{exibirValor(acao.lucroPrejuizo, acao.moeda)}</strong>
+                                        {!modoPrivacidade && <small>{formatPercentage(acao.rentabilidadePercentual)}</small>}
                                     </td>
                                     <td>
                                         <div className="table-row-actions">
@@ -595,9 +627,9 @@ const Carteiras = () => {
                                         : <span className="ticker-badge">{transacao.ticker}</span>}
                                     </td>
                                     <td>{transacao.corretora ? getNomeCorretora(transacao.corretora) : '---'}</td>
-                                    <td className="table-number">{transacao.tipo === 'APORTE' ? '---' : transacao.quantidade}</td>
-                                    <td className="table-number">{formatCurrency(transacao.precoUnitario, transacao.moeda)}</td>
-                                    <td className="table-number">{formatCurrency(transacao.valorTotal, transacao.moeda)}</td>
+                                    <td className="table-number">{transacao.tipo === 'APORTE' ? '---' : exibirQuantidade(transacao.quantidade)}</td>
+                                    <td className="table-number">{exibirValor(transacao.precoUnitario, transacao.moeda)}</td>
+                                    <td className="table-number">{exibirValor(transacao.valorTotal, transacao.moeda)}</td>
                                     <td>{transacao.dataHora ? new Date(transacao.dataHora).toLocaleString('pt-BR') : '---'}</td>
                                 </tr>
                             ))}
@@ -623,7 +655,7 @@ const Carteiras = () => {
                                     <label>Posição</label>
                                     <input
                                         type="text"
-                                        value={`${posicaoEmVenda.ticker} - ${getNomeCorretora(posicaoEmVenda.corretoraRelacionada)} (${posicaoEmVenda.quantidadeTotal} disponível)`}
+                                        value={exibirPosicao(posicaoEmVenda)}
                                         className="form-input"
                                         readOnly
                                     />
@@ -635,7 +667,7 @@ const Carteiras = () => {
                                         value={venda.quantidade}
                                         onChange={(event) => setVenda({ ...venda, quantidade: event.target.value })}
                                         min={isBrazilianMarket(posicaoEmVenda.mercado) ? '1' : '0.01'}
-                                        max={posicaoEmVenda.quantidadeTotal}
+                                        max={modoPrivacidade ? undefined : posicaoEmVenda.quantidadeTotal}
                                         step={isBrazilianMarket(posicaoEmVenda.mercado) ? '1' : '0.01'}
                                         className="form-input"
                                     />
@@ -655,7 +687,7 @@ const Carteiras = () => {
                                     <label>Valor total</label>
                                     <input
                                         type="text"
-                                        value={formatCurrency(totalVenda, posicaoEmVenda.moeda)}
+                                        value={exibirValor(totalVenda, posicaoEmVenda.moeda)}
                                         className="form-input"
                                         readOnly
                                     />
@@ -682,7 +714,7 @@ const Carteiras = () => {
                                     <label>Origem</label>
                                     <input
                                         type="text"
-                                        value={`${posicaoEmTransferencia.ticker} - ${getNomeCorretora(posicaoEmTransferencia.corretoraRelacionada)} (${posicaoEmTransferencia.quantidadeTotal} disponível)`}
+                                        value={exibirPosicao(posicaoEmTransferencia)}
                                         className="form-input"
                                         readOnly
                                     />
@@ -709,7 +741,7 @@ const Carteiras = () => {
                                         value={transferencia.quantidade}
                                         onChange={(event) => setTransferencia({ ...transferencia, quantidade: event.target.value })}
                                         min="0.01"
-                                        max={posicaoEmTransferencia.quantidadeTotal}
+                                        max={modoPrivacidade ? undefined : posicaoEmTransferencia.quantidadeTotal}
                                         step="0.01"
                                         className="form-input"
                                     />

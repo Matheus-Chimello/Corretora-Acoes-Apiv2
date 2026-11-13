@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="022-criar-historico-administrativo" author="matheus">
+        <createTable tableName="historico_administrativo">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false" primaryKeyName="pk_historico_administrativo"/>
+            </column>
+            <column name="data_hora" type="TIMESTAMP(6)"><constraints nullable="false"/></column>
+            <column name="autor" type="VARCHAR(255)"><constraints nullable="false"/></column>
+            <column name="acao" type="VARCHAR(32)"><constraints nullable="false"/></column>
+            <column name="alvo" type="VARCHAR(512)"><constraints nullable="false"/></column>
+            <column name="resultado" type="VARCHAR(255)"><constraints nullable="false"/></column>
+        </createTable>
+        <createIndex tableName="historico_administrativo" indexName="idx_historico_administrativo_data">
+            <column name="data_hora"/>
+            <column name="id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

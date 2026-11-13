@@ -14,10 +14,13 @@ import {
 } from 'recharts';
 import Navbar from '../components/Navbar';
 import PortfolioOverview from '../components/PortfolioOverview';
+import PrivacyToggle, { VALOR_OCULTO } from '../components/PrivacyToggle';
 import { apiFetch, getErrorMessage } from '../services/api';
-import { getCurrentUser } from '../services/auth';
 
-const CHART_COLORS = ['#0b7b67', '#e3a832', '#d64d69', '#3478c6', '#7a9e56', '#6b7280'];
+const CHART_COLORS = [
+    'var(--accent-primary)', 'var(--chart-amber)', 'var(--chart-rose)',
+    'var(--chart-blue)', 'var(--chart-olive)', 'var(--chart-gray)'
+];
 
 const formatCurrency = (value, currency = 'BRL') => {
     const numericValue = Number(value || 0);
@@ -63,8 +66,7 @@ const ChartTooltip = ({ active, payload, label, valueFormatter }) => {
     );
 };
 
-const Dashboard = () => {
-    const cotacoesPendentes = getCurrentUser()?.cotacoesAtualizadas === false;
+const Dashboard = ({ modoPrivacidade = false, aoAlternarPrivacidade }) => {
     const [stats, setStats] = useState({
         corretorasCount: 0,
         acoesCount: 0,
@@ -126,12 +128,11 @@ const Dashboard = () => {
 
     return (
         <div className="container">
-            <Navbar title="Visão geral" />
+            <Navbar title="Visão geral" titleAction={aoAlternarPrivacidade && (
+                <PrivacyToggle ativo={modoPrivacidade} aoAlternar={aoAlternarPrivacidade} />
+            )} />
 
             <main className="dashboard page-content">
-                {cotacoesPendentes && <p role="alert" className="alert alert-warning">
-                    Algumas cotações não puderam ser atualizadas ao entrar. Os últimos valores disponíveis foram mantidos.
-                </p>}
                 {mensagemErro && <p role="alert" className="alert alert-error">{mensagemErro}</p>}
                 <section className="dashboard-intro">
                     <div>
@@ -145,7 +146,7 @@ const Dashboard = () => {
                 <section className="dashboard-cards">
                     <Link to="/carteiras" className="card card-featured">
                         <span className="card-label">Posições abertas</span>
-                        <div className="stat">{acoes.length}</div>
+                        <div className="stat">{modoPrivacidade ? VALOR_OCULTO : acoes.length}</div>
                         <p>Ativos atualmente presentes na carteira.</p>
                     </Link>
 
@@ -166,6 +167,8 @@ const Dashboard = () => {
                     positions={acoes}
                     transactions={transacoes}
                     saldoEmConta={carteira.saldoEmConta}
+                    saldoEmDolar={carteira.saldoEmDolar}
+                    modoPrivacidade={modoPrivacidade}
                 />
 
                 <section className="analytics-grid" aria-label="Análises do catálogo">
@@ -176,7 +179,9 @@ const Dashboard = () => {
                                 <h3>Posições por corretora</h3>
                             </div>
                         </div>
-                        {acoesPorCorretora.length > 0 ? (
+                        {modoPrivacidade ? (
+                            <div className="chart-empty">Distribuição oculta pelo modo privacidade.</div>
+                        ) : acoesPorCorretora.length > 0 ? (
                             <div className="chart-canvas">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
@@ -216,7 +221,7 @@ const Dashboard = () => {
                                         <XAxis dataKey="ticker" axisLine={false} tickLine={false} />
                                         <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `R$ ${value}`} />
                                         <Tooltip content={<ChartTooltip valueFormatter={(value) => formatCurrency(value)} />} />
-                                        <Bar dataKey="cotacao" fill="#0b7b67" maxBarSize={44} radius={[4, 4, 0, 0]} />
+                                        <Bar dataKey="cotacao" fill="var(--accent-primary)" maxBarSize={44} radius={[4, 4, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
@@ -246,15 +251,21 @@ const Dashboard = () => {
                                         <Link to="/carteiras" className="position-row" key={acao.posicaoId || acao.id}>
                                             <span className="ticker-badge">{acao.ticker}</span>
                                             <span className="position-company">{acao.nomeEmpresa || 'Ação cadastrada'}</span>
-                                            <div className="position-bar" aria-label={`${share.toFixed(1)}% da carteira`}>
-                                                <span style={{ width: `${share}%` }} />
-                                            </div>
-                                            <span className="position-value">
-                                                <strong>{formatCurrency(position, acao.moeda)}</strong>
-                                                <small className={performanceClass(acao.lucroPrejuizo)}>
-                                                    {formatCurrency(acao.lucroPrejuizo, acao.moeda)} ({formatPercentage(acao.rentabilidadePercentual)})
-                                                </small>
-                                            </span>
+                                            {modoPrivacidade ? (
+                                                <span className="position-value position-value-masked">{VALOR_OCULTO}</span>
+                                            ) : (
+                                                <>
+                                                    <div className="position-bar" aria-label={`${share.toFixed(1)}% da carteira`}>
+                                                        <span style={{ width: `${share}%` }} />
+                                                    </div>
+                                                    <span className="position-value">
+                                                        <strong>{formatCurrency(position, acao.moeda)}</strong>
+                                                        <small className={performanceClass(acao.lucroPrejuizo)}>
+                                                            {formatCurrency(acao.lucroPrejuizo, acao.moeda)} ({formatPercentage(acao.rentabilidadePercentual)})
+                                                        </small>
+                                                    </span>
+                                                </>
+                                            )}
                                         </Link>
                                     );
                                 })}

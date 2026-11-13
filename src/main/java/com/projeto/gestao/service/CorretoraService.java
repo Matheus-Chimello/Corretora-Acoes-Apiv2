@@ -17,17 +17,22 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
+import static com.projeto.gestao.domain.model.RegistroAdministrativo.Acao.REVALIDACAO_CORRETORA;
+
 @Service
 public class CorretoraService {
 
     private final CorretoraRepository corretoraRepository;
     private final ValidacaoCnpjPort validacaoCnpjPort;
     private final BuscaCepPort buscaCepPort;
+    private final HistoricoAdministrativoService historico;
 
-    public CorretoraService(CorretoraRepository corretoraRepository, ValidacaoCnpjPort validacaoCnpjPort, BuscaCepPort buscaCepPort) {
+    public CorretoraService(CorretoraRepository corretoraRepository, ValidacaoCnpjPort validacaoCnpjPort,
+                            BuscaCepPort buscaCepPort, HistoricoAdministrativoService historico) {
         this.corretoraRepository = corretoraRepository;
         this.validacaoCnpjPort = validacaoCnpjPort;
         this.buscaCepPort = buscaCepPort;
+        this.historico = historico;
     }
 
     @Transactional
@@ -82,16 +87,34 @@ public class CorretoraService {
     }
 
     @Transactional
-    public Corretora revalidarCorretora(UUID id) {
+    public ResultadoRevalidacao revalidarCorretora(String autor, UUID id) {
         var corretora = corretoraRepository.findByIdParaAtualizar(id).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Corretora não encontrada."));
-        var consulta = validacaoCnpjPort.consultar(corretora.getCnpj());
-        if (consulta == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A consulta de CNPJ não retornou dados para revalidação.");
+        String alvo = corretora.getRazaoSocial() == null ? corretora.getCnpj()
+                : corretora.getRazaoSocial() + " (" + corretora.getCnpj() + ")";
+        ValidacaoCnpjPort.ConsultaCnpj consulta;
+        try {
+            consulta = validacaoCnpjPort.consultar(corretora.getCnpj());
+            if (consulta == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "A consulta de CNPJ não retornou dados para revalidação.");
+            }
+        } catch (RuntimeException falha) {
+            historico.registrar(autor, REVALIDACAO_CORRETORA, alvo, "Falha na consulta");
+            return new ResultadoRevalidacao(null, falha);
         }
-        corretora.registrarValidacao(validadaNaConsulta(consulta), consulta.fonte(), Instant.now());
+        boolean validada = validadaNaConsulta(consulta);
+        corretora.registrarValidacao(validada, consulta.fonte(), Instant.now());
         corretora.setSituacaoCadastral(consulta.dados().situacaoCadastral());
-        return corretoraRepository.save(corretora);
+        historico.registrar(autor, REVALIDACAO_CORRETORA, alvo, validada ? "Validada" : "Não validada");
+        return new ResultadoRevalidacao(corretoraRepository.save(corretora), null);
+    }
+
+    public record ResultadoRevalidacao(Corretora corretora, RuntimeException falha) {
+        public Corretora obterResultado() {
+            // A consulta malsucedida também entra no histórico antes da resposta HTTP.
+            if (falha != null) throw falha;
+            return corretora;
+        }
     }
 
     private boolean cnpjValido(String cnpj) {

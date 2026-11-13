@@ -1,5 +1,6 @@
 package com.projeto.gestao.api.controller;
 
+import com.projeto.gestao.domain.dto.AlterarMinhaSenhaRequest;
 import com.projeto.gestao.service.AutenticacaoService;
 import com.projeto.gestao.service.CotacoesLoginService;
 import org.springframework.http.HttpHeaders;
@@ -13,6 +14,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -56,6 +58,13 @@ public class AutenticacaoController {
     public Map<String, Object> me(Authentication authentication) {
         return Map.of("username", authentication.getName(), "authorities", authentication.getAuthorities()
                 .stream().map(GrantedAuthority::getAuthority).toList());
+    }
+
+    @PutMapping("/me/senha")
+    public ResponseEntity<Void> alterarMinhaSenha(Authentication authentication,
+                                                   @Valid @RequestBody AlterarMinhaSenhaRequest payload) {
+        autenticacaoService.alterarMinhaSenha(authentication.getName(), payload.senhaAtual(), payload.novaSenha());
+        return ResponseEntity.noContent().build();
     }
 
     public record LoginRequest(@NotBlank String email, @NotBlank String password) { }

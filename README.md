@@ -23,7 +23,7 @@ Construir uma solução de gestão de investimentos que permita:
 - Catálogo individual de ativos para cada usuário.
 - Cadastro de corretoras após validação das informações públicas.
 - Consulta de cotações de ações brasileiras e americanas.
-- Carteira com saldo disponível e controle de aportes.
+- Carteira com saldo disponível e aportes em BRL e USD.
 - Compra e venda de ações com valor unitário e valor total.
 - Cálculo de preço médio ponderado por ação e corretora.
 - Transferência de posições entre corretoras.
@@ -71,17 +71,19 @@ Construir uma solução de gestão de investimentos que permita:
 
 1. O usuário escolhe o mercado e informa o ticker.
 2. A aplicação consulta a cotação em uma fonte externa.
-3. A moeda retornada é validada conforme o mercado selecionado.
+3. Se a moeda indicar outro mercado, o formulário seleciona a sugestão e pede a confirmação do cadastro. O banco valida os pares BR/BRL e US/USD.
 4. O ativo é salvo apenas no catálogo do usuário autenticado.
 5. As cotações podem ser atualizadas individualmente ou em lote.
 
 ### Carteira
 
-1. O usuário realiza aportes para formar o saldo disponível.
-2. As compras registram ativo, corretora, quantidade e valor unitário.
+1. O usuário escolhe BRL ou USD ao registrar um aporte.
+2. As compras registram ativo, corretora, quantidade e valor unitário. Compras e vendas movimentam o saldo da moeda do ativo.
 3. O preço médio é atualizado de forma ponderada.
 4. Vendas e transferências são registradas no histórico.
 5. A interface apresenta posição atual, resultado e composição da carteira.
+
+Na migração, o saldo existente entra no caixa em BRL e o caixa em USD começa zerado.
 
 ---
 

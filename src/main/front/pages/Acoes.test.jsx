@@ -57,8 +57,39 @@ describe('catalogo de acoes', () => {
         expect(marketUpdates).toHaveBeenCalled();
     });
 
+    it.each([
+        ['MSFT', 'BR', 'USD', 'EUA', 'US'],
+        ['PETR3', 'US', 'BRL', 'Brasil', 'BR']
+    ])('sugere o mercado de %s pela moeda da cotação e pede confirmação antes de cadastrar', async (ticker, anterior, moeda, nomeMercado, mercado) => {
+        http.mockResolvedValueOnce(resposta([ativo])).mockResolvedValueOnce(Response.json({
+            message: 'Mercado incompatível.', mercadoSugerido: mercado
+        }, { status: 400 })).mockResolvedValue(resposta([ativo]));
+        render(<Acoes />);
+        await screen.findByRole('cell', { name: 'Petrobras' });
+        const form = screen.getByRole('button', { name: 'Cadastrar ativo' }).closest('form');
+        const campoTicker = screen.getByLabelText('Ticker', { exact: true });
+        fireEvent.change(campoTicker, { target: { value: ticker } });
+        fireEvent.change(screen.getByLabelText('Mercado', { exact: true }), { target: { value: anterior } });
+        fireEvent.submit(form);
+        fireEvent.submit(form);
+        const aviso = `A cotação veio em ${moeda}. Confira o mercado ${nomeMercado} e confirme o cadastro.`;
+        expect(await screen.findByText(aviso)).toBeInTheDocument();
+        expect(form.querySelector('select')).toHaveValue(mercado);
+        expect(http.mock.calls.filter(([, opcoes]) => opcoes.method === 'POST')).toHaveLength(1);
+
+        fireEvent.change(campoTicker, { target: { value: ticker + 'X' } });
+        expect(screen.queryByText(aviso)).not.toBeInTheDocument();
+        fireEvent.change(campoTicker, { target: { value: ticker } });
+        fireEvent.submit(form);
+        expect(await screen.findByText('Ativo cadastrado no catálogo com sucesso.')).toBeInTheDocument();
+        expect(http).toHaveBeenCalledWith('/acoes', expect.objectContaining({
+            method: 'POST', body: JSON.stringify({ ticker, mercado })
+        }));
+    });
+
     it('exibe erro ao cadastrar e ao atualizar cotacoes', async () => {
-        http.mockResolvedValueOnce(resposta([ativo])).mockResolvedValueOnce(resposta({ message: 'Ativo inválido' }, false)).mockResolvedValueOnce(resposta({ message: 'Serviço indisponível' }, false));
+        http.mockResolvedValueOnce(resposta([ativo])).mockResolvedValueOnce(Response.json({ message: 'Ativo inválido' }, { status: 400 }))
+            .mockResolvedValueOnce(resposta({ message: 'Serviço indisponível' }, false));
         render(<Acoes />);
         await screen.findByRole('cell', { name: 'Petrobras' });
         fireEvent.submit(screen.getByRole('button', { name: 'Cadastrar ativo' }).closest('form'));

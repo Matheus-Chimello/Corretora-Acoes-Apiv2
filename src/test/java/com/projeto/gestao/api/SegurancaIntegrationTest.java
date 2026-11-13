@@ -261,25 +261,98 @@ class SegurancaIntegrationTest {
     }
 
     @Test
-    void logoutMantemTokenDaContaAtivaComPapelOriginal() throws Exception {
+    void logoutMantemTokenDaContaAtiva() throws Exception {
         String token = login();
-        var usuario = usuarios.findByEmailIgnoreCase("jwt@teste.local").orElseThrow();
-        usuario.setPapel(PapelUsuario.ADMIN);
-        usuarios.save(usuario);
         mvc.perform(post("/auth/logout").header("Authorization", "Bearer " + token)).andExpect(status().isNoContent());
         mvc.perform(get("/auth/me").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.authorities[0]").value("ROLE_USER"));
     }
 
     @Test
+    void protegeUltimoAdminAtivoEmTrocaDePerfilOuInativacao() throws Exception {
+        String autorizacaoAdmin = autorizacaoDeOutroAdmin();
+        var admin = usuarios.findByEmailIgnoreCase("admin@teste.local").orElseThrow();
+        String edicao = """
+                {"nome":"Administrador de teste","email":"admin@teste.local","papel":"%s","ativo":%b}
+                """;
+        for (String payload : List.of(edicao.formatted("USER", true), edicao.formatted("ADMIN", false))) {
+            mvc.perform(put("/api/usuarios/{id}", admin.getId()).header("Authorization", autorizacaoAdmin)
+                    .contentType(MediaType.APPLICATION_JSON).content(payload))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.message").value("Mantenha pelo menos um administrador ativo."));
+        }
+        mvc.perform(get("/api/usuarios/{id}", admin.getId()).header("Authorization", autorizacaoAdmin))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.papel").value("ADMIN"))
+                .andExpect(jsonPath("$.ativo").value(true));
+
+        var outro = usuarios.findByEmailIgnoreCase("jwt@teste.local").orElseThrow();
+        outro.setPapel(PapelUsuario.ADMIN);
+        usuarios.save(outro);
+        mvc.perform(put("/api/usuarios/{id}", admin.getId()).header("Authorization", autorizacaoAdmin)
+                .contentType(MediaType.APPLICATION_JSON).content(edicao.formatted("USER", true)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.papel").value("USER"));
+    }
+
+    @Test
+    void trocaSomentePropriaSenhaAposConfirmarASenhaAtual() throws Exception {
+        String token = "Bearer " + login();
+        String autorizacaoAdmin = autorizacaoDeOutroAdmin();
+        String payload = """
+                {"senhaAtual":"%s","novaSenha":"%s"}
+                """;
+        mvc.perform(put("/auth/me/senha").contentType(MediaType.APPLICATION_JSON)
+                .content(payload.formatted("senha-teste", "senha-nova-teste"))).andExpect(status().isUnauthorized());
+        mvc.perform(put("/auth/me/senha").header("Authorization", token).contentType(MediaType.APPLICATION_JSON)
+                .content(payload.formatted("senha-errada", "senha-nova-teste")))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value("Senha atual incorreta."));
+        mvc.perform(put("/auth/me/senha").header("Authorization", token).contentType(MediaType.APPLICATION_JSON)
+                .content(payload.formatted("senha-teste", "curta")))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.novaSenha").exists());
+        mvc.perform(put("/auth/me/senha").header("Authorization", token).contentType(MediaType.APPLICATION_JSON)
+                .content(payload.formatted("senha-teste", "senha-nova-teste"))).andExpect(status().isNoContent());
+        requisitarLogin("jwt@teste.local", "senha-teste").andExpect(status().isUnauthorized());
+        requisitarLogin("jwt@teste.local", "senha-nova-teste").andExpect(status().isOk());
+        requisitarLogin("admin@teste.local", "senha-teste").andExpect(status().isOk());
+        mvc.perform(get("/auth/me").header("Authorization", autorizacaoAdmin)).andExpect(status().isOk());
+    }
+
+    @Test
+    void mudancaDePerfilRevogaATrocaNasSessoesAbertas() throws Exception {
+        String autorizacaoAdmin = autorizacaoDeOutroAdmin();
+        var alvo = usuarios.findByEmailIgnoreCase("jwt@teste.local").orElseThrow();
+        alvo.setPapel(PapelUsuario.ADMIN);
+        String tokenAntesDaTroca = "Bearer " + login();
+        mvc.perform(get("/api/usuarios").header("Authorization", tokenAntesDaTroca)).andExpect(status().isOk());
+
+        String cadastro = """
+                {"nome":"Nome atualizado","email":"jwt@teste.local","papel":"%s","ativo":true}
+                """;
+        mvc.perform(put("/api/usuarios/{id}", alvo.getId()).header("Authorization", autorizacaoAdmin)
+                .contentType(MediaType.APPLICATION_JSON).content(cadastro.formatted("USER")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.papel").value("USER"));
+        mvc.perform(get("/api/usuarios").header("Authorization", tokenAntesDaTroca)).andExpect(status().isUnauthorized());
+
+        String tokenUsuario = "Bearer " + login();
+        mvc.perform(get("/auth/me").header("Authorization", tokenUsuario))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.authorities[0]").value("ROLE_USER"));
+        mvc.perform(get("/api/usuarios").header("Authorization", tokenUsuario)).andExpect(status().isForbidden());
+
+        mvc.perform(put("/api/usuarios/{id}", alvo.getId()).header("Authorization", autorizacaoAdmin)
+                .contentType(MediaType.APPLICATION_JSON).content(cadastro.formatted("USER")))
+                .andExpect(status().isOk());
+        mvc.perform(get("/auth/me").header("Authorization", tokenUsuario)).andExpect(status().isOk());
+
+        mvc.perform(put("/api/usuarios/{id}", alvo.getId()).header("Authorization", autorizacaoAdmin)
+                .contentType(MediaType.APPLICATION_JSON).content(cadastro.formatted("ADMIN")))
+                .andExpect(status().isOk());
+        mvc.perform(get("/auth/me").header("Authorization", tokenUsuario)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/usuarios").header("Authorization", "Bearer " + login())).andExpect(status().isOk());
+        mvc.perform(get("/api/usuarios").header("Authorization", tokenAntesDaTroca)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void inativacaoRevogaSessoesAbertasInclusiveDepoisDeReativar() throws Exception {
-        var admin = new Usuario();
-        admin.setNome("Administrador de teste");
-        admin.setEmail("admin@teste.local");
-        admin.setSenhaHash(new BCryptPasswordEncoder().encode("senha-teste"));
-        admin.setPapel(PapelUsuario.ADMIN);
-        usuarios.save(admin);
-        String autorizacaoAdmin = "Bearer " + login(admin.getEmail());
+        String autorizacaoAdmin = autorizacaoDeOutroAdmin();
         String autorizacaoUsuario = "Bearer " + login();
         String autorizacaoLegada = "Bearer " + emitirToken(properties.issuer(), Instant.now(),
                 Instant.now().plusSeconds(3600));
@@ -348,6 +421,16 @@ class SegurancaIntegrationTest {
     private String login(String email) throws Exception {
         var resultado = requisitarLogin(email, "senha-teste").andExpect(status().isOk()).andReturn();
         return mapper.readTree(resultado.getResponse().getContentAsString()).get("token").asText();
+    }
+
+    private String autorizacaoDeOutroAdmin() throws Exception {
+        var admin = new Usuario();
+        admin.setNome("Administrador de teste");
+        admin.setEmail("admin@teste.local");
+        admin.setSenhaHash(new BCryptPasswordEncoder().encode("senha-teste"));
+        admin.setPapel(PapelUsuario.ADMIN);
+        usuarios.save(admin);
+        return "Bearer " + login(admin.getEmail());
     }
 
     private String emitirToken(String issuer, Instant issuedAt, Instant expiresAt) {

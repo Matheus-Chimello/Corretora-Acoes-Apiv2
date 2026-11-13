@@ -3,7 +3,6 @@ package com.projeto.gestao.domain.model;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
@@ -16,6 +15,9 @@ public class Carteira {
     private BigDecimal saldoAcao =  BigDecimal.ZERO;
 
     private BigDecimal saldoEmConta = BigDecimal.ZERO;
+
+    @Column(nullable = false, precision = 38, scale = 2)
+    private BigDecimal saldoEmDolar = BigDecimal.ZERO;
 
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
@@ -55,6 +57,23 @@ public class Carteira {
         this.saldoEmConta = saldoEmConta;
     }
 
+    public BigDecimal getSaldoEmDolar() {
+        return saldoEmDolar;
+    }
+
+    public BigDecimal saldoNaMoeda(Moeda moeda) {
+        BigDecimal saldo = moeda == Moeda.USD ? saldoEmDolar : saldoEmConta;
+        return saldo == null ? BigDecimal.ZERO : saldo;
+    }
+
+    public void atualizarSaldoNaMoeda(Moeda moeda, BigDecimal saldo) {
+        if (moeda == Moeda.USD) {
+            this.saldoEmDolar = saldo;
+        } else {
+            setSaldoEmConta(saldo);
+        }
+    }
+
     public Usuario getUsuario() {
         return usuario;
     }
@@ -67,11 +86,13 @@ public class Carteira {
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         Carteira carteira = (Carteira) o;
-        return Objects.equals(saldoAcao, carteira.saldoAcao) && Objects.equals(saldoEmConta, carteira.saldoEmConta);
+        return Objects.equals(saldoAcao, carteira.saldoAcao)
+                && Objects.equals(saldoEmConta, carteira.saldoEmConta)
+                && Objects.equals(saldoEmDolar, carteira.saldoEmDolar);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(saldoAcao, saldoEmConta);
+        return Objects.hash(saldoAcao, saldoEmConta, saldoEmDolar);
     }
 }

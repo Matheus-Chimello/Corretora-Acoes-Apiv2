@@ -1,5 +1,6 @@
 package com.projeto.gestao.api.exception;
 
+import com.projeto.gestao.domain.exception.MercadoIncompativelException;
 import feign.FeignException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -41,6 +42,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException exception) {
         return resposta(HttpStatus.BAD_REQUEST, "Business Rule Error", exception.getMessage(), null);
+    }
+
+    @ExceptionHandler(MercadoIncompativelException.class)
+    public ResponseEntity<Map<String, Object>> handleMercadoIncompativel(MercadoIncompativelException exception) {
+        var resposta = handleIllegalArgument(exception);
+        resposta.getBody().put("mercadoSugerido", exception.mercadoSugerido());
+        return resposta;
     }
 
     @ExceptionHandler(ResponseStatusException.class)

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import HistoricoAdministrativo from '../components/HistoricoAdministrativo';
 import Navbar from '../components/Navbar';
 import { apiFetch, getErrorMessage } from '../services/api';
 
@@ -16,6 +17,7 @@ const Usuarios = () => {
     const [busca, setBusca] = useState('');
     const [perfil, setPerfil] = useState('');
     const [situacao, setSituacao] = useState('');
+    const [historicoAberto, setHistoricoAberto] = useState(false);
     const gatilhoModal = useRef(null);
 
     const fechar = () => {
@@ -103,11 +105,16 @@ const Usuarios = () => {
                 <div><p className="eyebrow">Controle de acesso</p><h2>Usuários</h2>
                     <p>Gerencie as contas e os perfis de acesso à plataforma.</p></div>
                 <div className="admin-actions">
+                    <button type="button" className="btn btn-secondary" aria-expanded={historicoAberto}
+                        aria-controls="historico-administrativo" onClick={() => setHistoricoAberto(aberto => !aberto)}>
+                        Histórico administrativo
+                    </button>
                     <button className="btn btn-secondary" onClick={carregar} disabled={carregando || salvando}>Recarregar</button>
                     <button className="btn btn-primary" onClick={abrirNovo} disabled={carregando}>Novo usuário</button>
                 </div>
             </section>
             {mensagem.texto && <p role="alert" className={`alert alert-${mensagem.tipo}`}>{mensagem.texto}</p>}
+            {historicoAberto && <HistoricoAdministrativo />}
             <section className="admin-filters form-panel" aria-label="Filtros de usuários">
                 <div className="field-group"><label htmlFor="admin-busca">Buscar por nome ou email</label>
                     <input id="admin-busca" className="form-input" type="search" value={busca} onChange={event => setBusca(event.target.value)} placeholder="Digite um nome ou email" /></div>
@@ -163,7 +170,7 @@ const Usuarios = () => {
                             </select></div></>}
                         {modal === 'editar' && <>
                             <label className="admin-active"><input type="checkbox" checked={formulario.ativo} onChange={event => setFormulario(atual => ({ ...atual, ativo: event.target.checked }))} /> Conta ativa</label>
-                            <p className="admin-hint">Mudanças de acesso valem para novos logins. Sessões já abertas podem continuar ativas até expirar.</p>
+                            <p className="admin-hint">Alterar o perfil ou inativar a conta encerra as sessões abertas.</p>
                         </>}
                         {modal !== 'editar' && <><div className="field-group"><label htmlFor="usuario-senha">{modal === 'novo' ? 'Senha inicial' : 'Nova senha'}</label>
                             <input id="usuario-senha" className="form-input" type="password" name="password" value={formulario.password} onChange={alterarCampo} required minLength={8} maxLength={72} autoComplete="new-password" autoFocus={modal === 'senha'} />

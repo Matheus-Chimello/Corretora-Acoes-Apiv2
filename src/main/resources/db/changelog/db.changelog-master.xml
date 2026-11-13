@@ -26,4 +26,7 @@
     <include file="changes/010-ampliar-tipo-transacao-h2.xml" relativeToChangelogFile="true"/>
     <include file="changes/011-revogar-sessoes-de-contas-inativas.xml" relativeToChangelogFile="true"/>
     <include file="changes/012-registrar-validacao-de-corretora.xml" relativeToChangelogFile="true"/>
+    <include file="changes/013-criar-historico-administrativo.xml" relativeToChangelogFile="true"/>
+    <include file="changes/014-separar-saldos-por-moeda.xml" relativeToChangelogFile="true"/>
+    <include file="changes/015-validar-mercado-e-moeda.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { MemoryRouter } from 'react-router-dom';
 import Dashboard from './Dashboard';
@@ -12,13 +12,19 @@ describe('visao geral', () => {
     beforeEach(() => vi.clearAllMocks());
     afterEach(cleanup);
 
-    it('avisa quando o login manteve cotacoes anteriores por indisponibilidade do provedor', async () => {
+    it('exibe o catálogo sem alerta quando o login mantém as cotações anteriores', async () => {
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token: 'token-user', cotacoesAtualizadas: false }));
-        http.mockImplementation(async (url) => ({ ok: true, json: async () => url.endsWith('stats') ? {} : [] }));
+        const respostas = {
+            '/api/dashboard/stats': { corretorasCount: 0 },
+            '/acoes': [{ ticker: 'PETR4', cotacaoAtual: 30 }],
+            '/carteiras/principal': { saldoEmConta: 0 }
+        };
+        http.mockImplementation(async (url) => ({ ok: true, json: async () => respostas[url] ?? [] }));
         render(<MemoryRouter><Dashboard /></MemoryRouter>);
-        expect(await screen.findByRole('alert')).toHaveTextContent(
-            'Algumas cotações não puderam ser atualizadas ao entrar. Os últimos valores disponíveis foram mantidos.'
-        );
+
+        const catalogo = within(screen.getByRole('link', { name: /Ações cadastradas/ }));
+        expect(await catalogo.findByText('1')).toBeInTheDocument();
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 
     it('exibe a posicao e seu resultado com os dados da API', async () => {

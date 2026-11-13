@@ -29,7 +29,7 @@ public record TransacaoCarteiraResponse(
                 transacao.getPrecoUnitario(),
                 transacao.getValorTotal(),
                 transacao.getDataHora(),
-                aporte || !"USD".equalsIgnoreCase(transacao.getAcao().getMoeda()) ? "BRL" : "USD",
+                transacao.getMoeda().name(),
                 aporte ? null : AcaoResponse.corretoraResumo(transacao.getCorretora())
         );
     }

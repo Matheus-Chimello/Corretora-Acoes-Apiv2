@@ -56,6 +56,9 @@ class MercadoELoginIntegrationTest extends ApiIntegrationSupport {
         mvc.perform(post("/acoes").with(user("outra@teste.local").roles("ADMIN"))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"ticker\":\"MSFT\",\"mercado\":\"US\"}"))
                 .andExpect(status().isCreated());
+        mvc.perform(post("/api/usuarios").contentType(MediaType.APPLICATION_JSON).content("""
+                {"nome":"Administrador de teste","email":"reserva@teste.local","password":"senha-teste","papel":"ADMIN"}
+                """)).andExpect(status().isCreated());
         var conta = body(mvc.perform(get("/api/usuarios")).andExpect(status().isOk()));
         var id = java.util.stream.StreamSupport.stream(conta.spliterator(), false)
                 .filter(item -> item.get("email").asText().equals("http@teste.local"))

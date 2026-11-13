@@ -32,6 +32,9 @@ class CorretoraServiceTest {
     @Mock
     private BuscaCepPort buscaCepPort;
 
+    @Mock
+    private HistoricoAdministrativoService historico;
+
     @InjectMocks
     private CorretoraService corretoraService;
 

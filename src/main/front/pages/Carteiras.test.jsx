@@ -96,6 +96,23 @@ describe('operacoes da carteira', () => {
         expect(http).not.toHaveBeenCalledWith(expect.stringContaining('/vendas'), expect.anything());
     });
 
+    it('mantém o formulário de transferência numérico sem revelar a quantidade disponível em modo privacidade', async () => {
+        render(<Carteiras modoPrivacidade />);
+        fireEvent.click(await screen.findByRole('button', { name: 'Transferir' }));
+        const form = within(screen.getByRole('button', { name: 'Confirmar transferência' }).closest('form'));
+
+        expect(form.queryByDisplayValue(/disponível/)).not.toBeInTheDocument();
+        const quantidade = form.getByRole('spinbutton');
+        expect(quantidade).toHaveValue(null);
+        expect(quantidade).not.toHaveAttribute('max');
+
+        fireEvent.change(form.getByRole('combobox'), { target: { value: 'c2' } });
+        fireEvent.change(quantidade, { target: { value: '5' } });
+        fireEvent.click(form.getByRole('button', { name: 'Confirmar transferência' }));
+        expect(await form.findByRole('alert')).toHaveTextContent('A quantidade informada é maior que a disponível na sua carteira.');
+        expect(http).not.toHaveBeenCalledWith(expect.stringContaining('/transferencias'), expect.anything());
+    });
+
     it('nao transfere sem escolher uma corretora de destino', async () => {
         await abrir();
         fireEvent.click(screen.getByRole('button', { name: 'Transferir' }));
@@ -113,10 +130,35 @@ describe('operacoes da carteira', () => {
         fireEvent.submit(form);
         expect(await screen.findByText('Aporte registrado com sucesso.')).toBeInTheDocument();
         expect(http).toHaveBeenCalledWith('/carteiras/principal/aportes', expect.objectContaining({
-            method: 'POST', body: JSON.stringify({ valor: '100' })
+            method: 'POST', body: JSON.stringify({ valor: '100', moeda: 'BRL' })
         }));
         const [, envio] = http.mock.calls.find(([rota]) => rota === '/carteiras/principal/aportes');
         expect(envio.headers.get('Authorization')).toBe('Bearer token-user');
+    });
+
+    it('mostra os saldos separados e registra um aporte na moeda selecionada', async () => {
+        const padrao = http.getMockImplementation();
+        let saldoEmDolar = 20;
+        http.mockImplementation(async (url, options) => {
+            if (url === '/carteiras/principal/aportes' && options.method === 'POST') saldoEmDolar += 25;
+            if (url === '/carteiras/principal' || url === '/carteiras/principal/aportes') {
+                return resposta({ id: 'carteira', saldoEmConta: 100, saldoEmDolar });
+            }
+            return padrao(url);
+        });
+        await abrir();
+        const saldos = within(screen.getByRole('group', { name: 'Saldos disponíveis' }));
+        expect(saldos.getByText('R$ 100,00')).toBeInTheDocument();
+        expect(saldos.getByText('US$ 20,00')).toBeInTheDocument();
+
+        fireEvent.change(screen.getByLabelText('Moeda do aporte'), { target: { value: 'USD' } });
+        fireEvent.change(screen.getByLabelText('Valor do aporte'), { target: { value: '25' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Adicionar saldo' }));
+        expect(await saldos.findByText('US$ 45,00')).toBeInTheDocument();
+        expect(saldos.getByText('R$ 100,00')).toBeInTheDocument();
+        expect(http).toHaveBeenCalledWith('/carteiras/principal/aportes', expect.objectContaining({
+            method: 'POST', body: JSON.stringify({ valor: '25', moeda: 'USD' })
+        }));
     });
 
     it('mostra o bloqueio de um aporte sem informar sucesso', async () => {

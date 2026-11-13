@@ -148,7 +148,7 @@ public class CarteiraController {
             @Valid @RequestBody AporteRequest payload
     ) {
         Usuario usuario = usuarioAutenticado(autorizacao);
-        return ResponseEntity.ok(carteiraService.realizarAporte(usuario, payload.valor()));
+        return ResponseEntity.ok(carteiraService.realizarAporte(usuario, payload.valor(), payload.moedaDoAporte()));
     }
 
     @PutMapping("/{id}/saldo-conta")

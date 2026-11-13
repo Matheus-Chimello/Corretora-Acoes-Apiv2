@@ -9,6 +9,34 @@ const ana = { id: 'u1', nome: 'Ana Teste', email: 'ana@teste.local', papel: 'USE
 const resposta = (dados, status = 200) => new Response(status === 204 ? null : JSON.stringify(dados), { status });
 
 describe('painel de administracao', () => {
+    it('abre o histórico administrativo, mostra o resultado e permite consultar a próxima página', async () => {
+        http.mockResolvedValueOnce(resposta([ana])).mockResolvedValueOnce(resposta({}, 503))
+            .mockResolvedValueOnce(resposta({
+                eventos: [{
+                    id: 1, dataHora: '2026-11-12T14:00:00Z', autor: 'admin@teste.local',
+                    acao: 'ALTERACAO_PERFIL', alvo: ana.email, resultado: 'USER → ADMIN'
+                }],
+                temProxima: true
+            }))
+            .mockResolvedValueOnce(resposta({ eventos: [], temProxima: false }));
+        render(<Usuarios />);
+        await screen.findByRole('cell', { name: ana.email });
+        fireEvent.click(screen.getByRole('button', { name: 'Histórico administrativo' }));
+        const historico = within(screen.getByRole('region', { name: 'Histórico administrativo' }));
+        expect(await historico.findByRole('alert')).toHaveTextContent('O servidor está indisponível');
+        fireEvent.click(historico.getByRole('button', { name: 'Recarregar histórico' }));
+
+        const linha = await historico.findByRole('row', { name: /admin@teste.local/ });
+        expect(within(linha).getByText('Alteração de perfil')).toBeInTheDocument();
+        expect(within(linha).getByText(ana.email)).toBeInTheDocument();
+        expect(within(linha).getByText('USER → ADMIN')).toBeInTheDocument();
+        expect(within(linha).getByText(new Date('2026-11-12T14:00:00Z').toLocaleString('pt-BR'))).toBeInTheDocument();
+        fireEvent.click(historico.getByRole('button', { name: 'Próxima página' }));
+        expect(await historico.findByText('Nenhum registro nesta página.')).toBeInTheDocument();
+        expect(fetch).toHaveBeenLastCalledWith(expect.stringContaining('/api/admin/historico?pagina=1'), expect.anything());
+        expect(historico.getByRole('button', { name: 'Página anterior' })).toBeEnabled();
+    });
+
     it('cadastra uma conta com perfil USER e apresenta o cadastro retornado pela API', async () => {
         http.mockResolvedValueOnce(resposta([])).mockResolvedValueOnce(resposta(ana, 201));
         render(<Usuarios />);

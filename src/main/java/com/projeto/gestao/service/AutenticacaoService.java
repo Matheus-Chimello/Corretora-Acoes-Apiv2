@@ -8,8 +8,8 @@ import com.projeto.gestao.repository.UsuarioRepository;
 import com.projeto.gestao.config.JwtProperties;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Locale;
 import java.time.Instant;
 
@@ -65,15 +66,29 @@ public class AutenticacaoService {
         var authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
                 normalizarEmail(email), senha == null ? "" : senha));
         Usuario usuario = usuarioRepository.findByEmailIgnoreCase(authentication.getName()).orElseThrow();
+        if (!Boolean.TRUE.equals(usuario.getAtivo())) {
+            throw new DisabledException("Conta inativa.");
+        }
         Instant issuedAt = Instant.now();
-        var claims = JwtClaimsSet.builder().issuer(jwtProperties.issuer()).subject(authentication.getName())
+        var claims = JwtClaimsSet.builder().issuer(jwtProperties.issuer()).subject(usuario.getEmail())
                 .issuedAt(issuedAt).expiresAt(issuedAt.plus(jwtProperties.expiration()))
                 .claim("sessao", usuario.identificadorSessao())
-                .claim("authorities", authentication.getAuthorities().stream()
-                        .map(GrantedAuthority::getAuthority).toList()).build();
+                .claim("authorities", List.of("ROLE_" + usuario.getPapel().name())).build();
         var header = JwsHeader.with(MacAlgorithm.HS256).type("JWT").build();
         String token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
         return resposta(usuario, token);
+    }
+
+    @Transactional
+    public void alterarMinhaSenha(String email, String senhaAtual, String novaSenha) {
+        Usuario usuario = usuarioRepository.findPorEmailParaAtualizar(email)
+                .filter(conta -> Boolean.TRUE.equals(conta.getAtivo()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sessão inválida ou expirada."));
+        if (!passwordEncoder.matches(senhaAtual, usuario.getSenhaHash())) {
+            throw new IllegalArgumentException("Senha atual incorreta.");
+        }
+        usuario.setSenhaHash(passwordEncoder.encode(novaSenha));
+        usuarioRepository.save(usuario);
     }
 
     @Transactional

@@ -16,7 +16,8 @@ import static org.mockito.Mockito.*;
 
 class UsuarioServiceTest {
     private final UsuarioRepository usuarios = mock(UsuarioRepository.class);
-    private final UsuarioService service = new UsuarioService(usuarios, new BCryptPasswordEncoder());
+    private final UsuarioService service = new UsuarioService(usuarios, new BCryptPasswordEncoder(),
+            mock(HistoricoAdministrativoService.class));
 
     @Test
     void deveRecusarEmailDuplicadoIgnorandoMaiusculas() {
@@ -35,7 +36,7 @@ class UsuarioServiceTest {
         when(usuarios.findByIdParaAtualizar(usuario.getId())).thenReturn(Optional.of(usuario));
         when(usuarios.findByEmailIgnoreCase(usuario.getEmail())).thenReturn(Optional.of(usuario));
         when(usuarios.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        var response = service.update(usuario.getId(), new UsuarioUpdateRequest(" Nome novo ",
+        var response = service.update("admin@teste.local", usuario.getId(), new UsuarioUpdateRequest(" Nome novo ",
                 " PESSOA@TESTE.LOCAL ", PapelUsuario.ADMIN, false));
         assertThat(response.nome()).isEqualTo("Nome novo");
         assertThat(response.email()).isEqualTo("pessoa@teste.local");
@@ -50,7 +51,7 @@ class UsuarioServiceTest {
         var outro = usuario("outra@teste.local");
         when(usuarios.findByIdParaAtualizar(usuario.getId())).thenReturn(Optional.of(usuario));
         when(usuarios.findByEmailIgnoreCase(outro.getEmail())).thenReturn(Optional.of(outro));
-        assertThatThrownBy(() -> service.update(usuario.getId(), new UsuarioUpdateRequest(
+        assertThatThrownBy(() -> service.update("admin@teste.local", usuario.getId(), new UsuarioUpdateRequest(
                 "Pessoa", outro.getEmail(), PapelUsuario.USER, true)))
                 .isInstanceOf(DataIntegrityViolationException.class);
         assertThat(usuario.getEmail()).isEqualTo("pessoa@teste.local");
@@ -62,14 +63,14 @@ class UsuarioServiceTest {
         var usuario = usuario("pessoa@teste.local");
         when(usuarios.findByIdParaAtualizar(usuario.getId())).thenReturn(Optional.of(usuario));
         when(usuarios.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        var response = service.update(usuario.getId(), new UsuarioUpdateRequest(
+        var response = service.update("admin@teste.local", usuario.getId(), new UsuarioUpdateRequest(
                 "Pessoa", "nova@teste.local", PapelUsuario.USER, true));
         assertThat(response.email()).isEqualTo("nova@teste.local");
     }
 
     @Test
     void deveRecusarAtualizacaoDeIdInexistente() {
-        assertThatThrownBy(() -> service.update(UUID.randomUUID(), new UsuarioUpdateRequest(
+        assertThatThrownBy(() -> service.update("admin@teste.local", UUID.randomUUID(), new UsuarioUpdateRequest(
                 "Pessoa", "pessoa@teste.local", PapelUsuario.USER, true)))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         exception -> assertThat(exception.getStatusCode().value()).isEqualTo(404));

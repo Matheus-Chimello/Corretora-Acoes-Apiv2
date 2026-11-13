@@ -1,21 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import {
+    BriefcaseBusiness, ChartNoAxesColumnIncreasing, Landmark, LogOut,
+    PanelLeftClose, PanelLeftOpen, ShieldCheck, TrendingUp, UserRound
+} from 'lucide-react';
 import { getCurrentUser, logout } from '../services/auth';
 
 const linksAdmin = [
-    { to: '/admin/usuarios', label: 'Administração' },
-    { to: '/admin/corretoras', label: 'Corretoras' }
+    { to: '/admin/usuarios', label: 'Administração', icon: ShieldCheck },
+    { to: '/admin/corretoras', label: 'Corretoras', icon: Landmark }
 ];
 
 const linksUsuario = [
-    { to: '/', label: 'Visão geral' },
-    { to: '/carteiras', label: 'Carteira' },
-    { to: '/corretoras', label: 'Corretoras' },
-    { to: '/acoes', label: 'Ações' }
+    { to: '/', label: 'Visão geral', icon: ChartNoAxesColumnIncreasing },
+    { to: '/carteiras', label: 'Carteira', icon: BriefcaseBusiness },
+    { to: '/corretoras', label: 'Corretoras', icon: Landmark },
+    { to: '/acoes', label: 'Ações', icon: TrendingUp }
 ];
 
-const Navbar = ({ title }) => {
+const Navbar = ({ title, titleAction }) => {
     const navigate = useNavigate();
     const currentUser = getCurrentUser();
     const isAdmin = currentUser?.role === 'ADMIN';
@@ -37,44 +40,56 @@ const Navbar = ({ title }) => {
     };
 
     const displayName = currentUser?.name || currentUser?.nome || currentUser?.email?.split('@')[0] || 'Perfil';
+    const sidebarLabel = sidebarRecolhida ? 'Expandir menu lateral' : 'Recolher menu lateral';
 
     return (
-        <header className={`header${sidebarRecolhida ? ' sidebar-collapsed' : ''}`}>
-            <button
-                type="button"
-                className="sidebar-toggle"
-                onClick={() => setSidebarRecolhida((recolhida) => !recolhida)}
-                aria-expanded={!sidebarRecolhida}
-                aria-label={sidebarRecolhida ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-                title={sidebarRecolhida ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-            >
-                {sidebarRecolhida ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}
-            </button>
-            <div className="header-brand">
-                <NavLink to={links[0].to} end className="brand"
-                    aria-label={isAdmin ? 'Ir para a administração' : 'Ir para a visão geral'}>
-                    <span className="brand-mark" aria-hidden="true">CA</span>
-                    <span className="brand-name">Corretora <strong>Ações</strong></span>
-                </NavLink>
-                <div className="page-title">
-                    <span>{isAdmin ? 'Controle de acesso' : 'Carteira'}</span>
-                    <h1>{title}</h1>
-                </div>
-            </div>
-            <nav className="nav-links" aria-label={isAdmin ? 'Menu do administrador' : 'Menu principal'}>
-                {links.map(({ to, label }) => (
-                    <NavLink key={to} to={to} end className={({ isActive }) => isActive ? 'active' : ''}>
-                        {label}
+        <>
+            <header className="header">
+                <div className="header-brand">
+                    <NavLink to={links[0].to} end className="brand"
+                        aria-label={isAdmin ? 'Ir para a administração' : 'Ir para a visão geral'}>
+                        <span className="brand-mark" aria-hidden="true">CA</span>
+                        <span className="brand-name">Corretora <strong>Ações</strong></span>
                     </NavLink>
-                ))}
-            </nav>
-            <div className="user-menu">
-                <span className="user-name">{displayName}</span>
-                <button type="button" className="btn btn-secondary btn-small" onClick={handleLogout}>
-                    Sair
-                </button>
+                    <button
+                        type="button"
+                        className="sidebar-toggle"
+                        onClick={() => setSidebarRecolhida((recolhida) => !recolhida)}
+                        aria-expanded={!sidebarRecolhida}
+                        aria-label={sidebarLabel}
+                        title={sidebarLabel}
+                    >
+                        {sidebarRecolhida ? <PanelLeftOpen size={18} aria-hidden="true" /> : <PanelLeftClose size={18} aria-hidden="true" />}
+                    </button>
+                </div>
+                <nav className="nav-links" aria-label={isAdmin ? 'Menu do administrador' : 'Menu principal'}>
+                    {links.map(({ to, label, icon: Icon }) => (
+                        <NavLink key={to} to={to} end>
+                            <Icon size={18} aria-hidden="true" />
+                            {label}
+                        </NavLink>
+                    ))}
+                </nav>
+                <div className="user-menu">
+                    <div className="user-profile">
+                        <span className="user-avatar" aria-hidden="true">{Array.from(displayName)[0].toLocaleUpperCase('pt-BR')}</span>
+                        <span className="user-name">{displayName}</span>
+                    </div>
+                    <NavLink to="/minha-conta" end className="user-menu-action">
+                        <UserRound size={18} aria-hidden="true" />
+                        Minha conta
+                    </NavLink>
+                    <button type="button" className="user-menu-action" onClick={handleLogout}>
+                        <LogOut size={18} aria-hidden="true" />
+                        Sair
+                    </button>
+                </div>
+            </header>
+            <div className="page-title">
+                <h1>{title}</h1>
+                {titleAction}
             </div>
-        </header>
+        </>
     );
 };
 

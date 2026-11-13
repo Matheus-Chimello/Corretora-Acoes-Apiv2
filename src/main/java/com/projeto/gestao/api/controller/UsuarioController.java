@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import java.security.Principal;
 import java.util.UUID;
 import java.util.List;
 
@@ -36,8 +37,9 @@ public class UsuarioController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<UsuarioResponse> update(@PathVariable UUID id, @Valid @RequestBody UsuarioUpdateRequest request) {
-        return ResponseEntity.ok(usuarios.update(id, request));
+    public ResponseEntity<UsuarioResponse> update(Principal principal, @PathVariable UUID id,
+                                                   @Valid @RequestBody UsuarioUpdateRequest request) {
+        return ResponseEntity.ok(usuarios.update(principal.getName(), id, request));
     }
 
     @PutMapping("/{id}/senha")

@@ -31,6 +31,8 @@ describe('menu lateral', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Recolher menu lateral' }));
         expect(localStorage.getItem('sidebar-recolhida')).toBe('true');
         expect(document.body).toHaveClass('sidebar-is-collapsed');
+        const titulo = screen.getByRole('heading', { name: 'Carteira', level: 1 });
+        expect(screen.getByRole('banner')).not.toContainElement(titulo);
         fireEvent.click(screen.getByRole('button', { name: 'Expandir menu lateral' }));
         expect(localStorage.getItem('sidebar-recolhida')).toBe('false');
     });

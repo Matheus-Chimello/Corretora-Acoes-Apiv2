@@ -31,6 +31,48 @@ class CarteiraPermissoesIntegrationTest extends ApiIntegrationSupport {
                 .content("{\"valor\":100}")).andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void aportesComprasEVendasRespeitamOMesmoSaldoPorMoeda() throws Exception {
+        String token = criarConta("cliente@teste.local", "USER");
+        String outraConta = criarConta("outra@teste.local", "USER");
+        String corretora = cadastrarCorretora(CORRETORA_JSON);
+        String acaoBr = body(escrever(token, "/acoes", ACAO_JSON).andExpect(status().isCreated())).get("id").asText();
+        String acaoUs = body(escrever(token, "/acoes", "{\"ticker\":\"AAPL\",\"mercado\":\"US\"}")
+                .andExpect(status().isCreated())).get("id").asText();
+        String rotaAporte = "/carteiras/principal/aportes";
+        String compraUsd = "/carteiras/principal/acoes/" + acaoUs + "/compras";
+        String compra = "{\"corretoraId\":\"%s\",\"quantidade\":2,\"valorUnitario\":30}".formatted(corretora);
+
+        escrever(token, rotaAporte, "{\"valor\":200}").andExpect(status().isOk())
+                .andExpect(jsonPath("$.saldoEmConta").value(200));
+        escrever(token, compraUsd, compra).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Saldo em USD insuficiente para esta compra."));
+        escrever(token, rotaAporte, "{\"valor\":10,\"moeda\":\"EUR\"}").andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields.moeda").isNotEmpty());
+
+        escrever(token, rotaAporte, "{\"valor\":100,\"moeda\":\"USD\"}").andExpect(status().isOk())
+                .andExpect(jsonPath("$.saldoEmConta").value(200))
+                .andExpect(jsonPath("$.saldoEmDolar").value(100));
+        String posicao = body(escrever(token, compraUsd, compra).andExpect(status().isOk())).get("posicaoId").asText();
+        consultar(token, "/carteiras/principal").andExpect(status().isOk())
+                .andExpect(jsonPath("$.saldoEmConta").value(200))
+                .andExpect(jsonPath("$.saldoEmDolar").value(40));
+
+        escrever(token, "/carteiras/principal/posicoes/" + posicao + "/vendas", "{\"quantidade\":1,\"valorUnitario\":35}")
+                .andExpect(status().isOk());
+        escrever(token, "/carteiras/principal/acoes/" + acaoBr + "/compras", compra).andExpect(status().isOk());
+        consultar(token, "/carteiras/principal").andExpect(status().isOk())
+                .andExpect(jsonPath("$.saldoEmConta").value(140))
+                .andExpect(jsonPath("$.saldoEmDolar").value(75));
+        consultar(token, "/carteiras/principal/transacoes").andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.tipo == 'APORTE')].moeda", containsInAnyOrder("BRL", "USD")))
+                .andExpect(jsonPath("$[?(@.tipo == 'COMPRA')].moeda", containsInAnyOrder("BRL", "USD")))
+                .andExpect(jsonPath("$[?(@.tipo == 'VENDA')].moeda", containsInAnyOrder("USD")));
+        consultar(outraConta, "/carteiras/principal").andExpect(status().isOk())
+                .andExpect(jsonPath("$.saldoEmConta").value(0))
+                .andExpect(jsonPath("$.saldoEmDolar").value(0));
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"USER", "ADMIN"})
     void titularConsegueOperarPropriaCarteiraDoCadastroAoHistorico(String papel) throws Exception {

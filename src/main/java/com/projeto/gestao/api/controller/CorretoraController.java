@@ -53,8 +53,8 @@ public class CorretoraController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String autorizacao,
             @PathVariable UUID id
     ) {
-        usuarioAutenticado(autorizacao);
-        return CorretoraResponse.from(corretoraService.revalidarCorretora(id));
+        Usuario autor = usuarioAutenticado(autorizacao);
+        return CorretoraResponse.from(corretoraService.revalidarCorretora(autor.getEmail(), id).obterResultado());
     }
 
     @GetMapping

@@ -77,6 +77,9 @@ public class Usuario {
     }
 
     public void setPapel(PapelUsuario papel) {
+        if (this.papel != null && this.papel != papel) {
+            versaoSessao++;
+        }
         this.papel = papel;
     }
 

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.29.xsd">
+    <changeSet id="024-validar-mercado-e-moeda" author="matheus">
+        <comment>Alinha o mercado legado à moeda da cotação e valida os pares no banco.</comment>
+        <sql>
+            UPDATE acoes
+            SET mercado = CASE WHEN UPPER(TRIM(moeda)) = 'USD' THEN 'US' ELSE 'BR' END,
+                moeda = UPPER(TRIM(moeda))
+            WHERE UPPER(TRIM(moeda)) IN ('BRL', 'USD')
+              AND (mercado IS NULL OR NOT ((mercado = 'BR' AND moeda = 'BRL') OR (mercado = 'US' AND moeda = 'USD')));
+        </sql>
+        <sql>
+            ALTER TABLE acoes ADD CONSTRAINT ck_acoes_mercado_moeda
+            CHECK (mercado IS NULL OR moeda IS NULL OR (mercado = 'BR' AND moeda = 'BRL') OR (mercado = 'US' AND moeda = 'USD'));
+        </sql>
+    </changeSet>
+</databaseChangeLog>

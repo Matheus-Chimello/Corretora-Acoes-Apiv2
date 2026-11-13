@@ -1,16 +1,21 @@
 package com.projeto.gestao.api;
 
 import com.projeto.gestao.domain.model.Corretora;
+import com.projeto.gestao.domain.port.CotacaoAcaoPort;
 import com.projeto.gestao.domain.port.ValidacaoCnpjPort;
 import com.projeto.gestao.repository.CorretoraRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.ResultActions;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
@@ -24,6 +29,30 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class ControllerTest extends ApiIntegrationSupport {
     @Autowired private CorretoraRepository corretoraRepository;
+    @Autowired private JdbcTemplate jdbc;
+
+    @Test
+    void sugereMercadoDaMoedaAntesDeCadastrarAcao() throws Exception {
+        when(cotacoes.getCotacao("MSFT", "BR")).thenReturn(
+                new CotacaoAcaoPort.CotacaoInfo("MSFT", "Empresa de teste", "USD", BigDecimal.TEN));
+        mvc.perform(post("/acoes").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"ticker\":\"MSFT\",\"mercado\":\"BR\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.mercadoSugerido").value("US"));
+        mvc.perform(get("/acoes/ticker/MSFT")).andExpect(status().isNotFound());
+        mvc.perform(post("/acoes").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"ticker\":\"MSFT\",\"mercado\":\"US\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.mercado").value("US")).andExpect(jsonPath("$.moeda").value("USD"));
+    }
+
+    @Test
+    void bancoRejeitaAcaoBrasileiraComMoedaUsd() {
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO acoes (id, ticker, mercado, moeda) VALUES (?, ?, ?, ?)",
+                UUID.randomUUID(), "MSFT", "BR", "USD"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageMatching("(?is).*ck_acoes_mercado_moeda.*");
+    }
 
     @Test
     void cadastraEListaAcoesDoUsuarioAutenticado() throws Exception {
@@ -136,6 +165,48 @@ class ControllerTest extends ApiIntegrationSupport {
         mvc.perform(post(rota)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.validadaNaCvm").value(true));
         consultarComoUsuario("/api/dashboard/corretoras", token).andExpect(jsonPath("$[*].cnpj", hasItem(cnpj)));
+    }
+
+    @Test
+    void historicoAdminIdentificaAutorAlvoEResultadoDeCadaAcao() throws Exception {
+        String rota = "/api/admin/historico";
+        String token = tokenUsuarioComum();
+        mvc.perform(get(rota).with(anonymous())).andExpect(status().isUnauthorized());
+        consultarComoUsuario(rota, token).andExpect(status().isForbidden());
+        mvc.perform(get(rota).param("pagina", "-1")).andExpect(status().isBadRequest());
+
+        String usuario = body(mvc.perform(post("/api/usuarios").contentType(MediaType.APPLICATION_JSON).content("""
+                {"nome":"Pessoa de teste","email":"alvo@teste.local","password":"senha-teste","papel":"USER"}
+                """)).andExpect(status().isCreated())).get("id").asText();
+        String cadastro = """
+                {"nome":"Pessoa editada","email":"alvo@teste.local","papel":"%s","ativo":%b}
+                """;
+        mvc.perform(put("/api/usuarios/{id}", usuario).contentType(MediaType.APPLICATION_JSON)
+                .content(cadastro.formatted("USER", true))).andExpect(status().isOk());
+        mvc.perform(put("/api/usuarios/{id}", usuario).contentType(MediaType.APPLICATION_JSON)
+                .content(cadastro.formatted("ADMIN", false))).andExpect(status().isOk());
+
+        String cnpj = "02332886000104";
+        String corretora = body(mvc.perform(post("/corretoras").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"cnpj\":\"%s\"}".formatted(cnpj))).andExpect(status().isCreated())).get("id").asText();
+        mvc.perform(post("/corretoras/{id}/revalidar", corretora)).andExpect(status().isOk());
+        when(cnpjs.consultar(cnpj)).thenReturn(null);
+        mvc.perform(post("/corretoras/{id}/revalidar", corretora)).andExpect(status().isBadGateway());
+
+        mvc.perform(get(rota)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.eventos", hasSize(4)))
+                .andExpect(jsonPath("$.eventos[*].autor", everyItem(is("http@teste.local"))))
+                .andExpect(jsonPath("$.eventos[0].acao").value("REVALIDACAO_CORRETORA"))
+                .andExpect(jsonPath("$.eventos[0].resultado").value("Falha na consulta"))
+                .andExpect(jsonPath("$.eventos[0].alvo").value("Corretora de teste (02332886000104)"))
+                .andExpect(jsonPath("$.eventos[0].dataHora").isNotEmpty())
+                .andExpect(jsonPath("$.eventos[1].resultado").value("Validada"))
+                .andExpect(jsonPath("$.eventos[2].acao").value("INATIVACAO_CONTA"))
+                .andExpect(jsonPath("$.eventos[2].alvo").value("alvo@teste.local"))
+                .andExpect(jsonPath("$.eventos[2].resultado").value("Conta inativada"))
+                .andExpect(jsonPath("$.eventos[3].acao").value("ALTERACAO_PERFIL"))
+                .andExpect(jsonPath("$.eventos[3].resultado").value("USER → ADMIN"))
+                .andExpect(jsonPath("$.temProxima").value(false));
     }
 
     private void inserirCorretoraLegada(String cnpj, Boolean validadaNaCvm) {

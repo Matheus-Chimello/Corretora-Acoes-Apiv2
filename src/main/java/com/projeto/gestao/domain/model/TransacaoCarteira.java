@@ -39,6 +39,10 @@ public class TransacaoCarteira {
     @Column(nullable = false)
     private TipoTransacao tipo;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 3)
+    private Moeda moeda;
+
     @Column(nullable = false)
     private BigDecimal quantidade;
 
@@ -65,6 +69,13 @@ public class TransacaoCarteira {
 
     public TipoTransacao getTipo() { return tipo; }
     public void setTipo(TipoTransacao tipo) { this.tipo = tipo; }
+
+    public Moeda getMoeda() {
+        if (moeda != null) return moeda;
+        return acao == null ? Moeda.BRL : Moeda.daCotacao(acao.getMoeda());
+    }
+
+    public void setMoeda(Moeda moeda) { this.moeda = moeda; }
 
     public BigDecimal getQuantidade() { return quantidade; }
     public void setQuantidade(BigDecimal quantidade) { this.quantidade = quantidade; }
