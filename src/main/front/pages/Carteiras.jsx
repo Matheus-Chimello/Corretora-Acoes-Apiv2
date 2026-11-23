@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import PrivacyToggle, { VALOR_OCULTO } from '../components/PrivacyToggle';
+import SimulacaoCompra from '../components/SimulacaoCompra';
+import { simularCompra } from '../services/simulacaoCompra';
 import { apiFetch, getErrorMessage } from '../services/api';
 import { getNomeCorretora } from '../services/corretoras';
 import { correspondeAoFiltro, opcoesUnicas } from '../services/filtros';
@@ -48,6 +50,7 @@ const Carteiras = ({ modoPrivacidade = false, aoAlternarPrivacidade }) => {
     const [moedaAporte, setMoedaAporte] = useState('BRL');
     const [aportando, setAportando] = useState(false);
     const [compra, setCompra] = useState({ acaoId: '', corretoraId: '', quantidade: '1', valorUnitario: '' });
+    const [comprando, setComprando] = useState(false);
     const [venda, setVenda] = useState({ posicaoId: '', quantidade: '', valorUnitario: '' });
     const [transferencia, setTransferencia] = useState({ posicaoId: '', corretoraDestinoId: '', quantidade: '' });
     const [mensagem, setMensagem] = useState({ tipo: '', texto: '' });
@@ -137,6 +140,8 @@ const Carteiras = ({ modoPrivacidade = false, aoAlternarPrivacidade }) => {
 
     const comprarAcao = async (event) => {
         event.preventDefault();
+        if (comprando) return;
+        setComprando(true);
         setMensagem({ tipo: '', texto: '' });
 
         try {
@@ -150,13 +155,19 @@ const Carteiras = ({ modoPrivacidade = false, aoAlternarPrivacidade }) => {
             if (compra.valorUnitario && Number(compra.valorUnitario) <= 0) {
                 throw new Error('Informe um valor unitário maior que zero ou deixe o campo em branco.');
             }
+            if (!simulacaoCompra) {
+                throw new Error('Informe quantidade e preço válidos para simular a compra.');
+            }
+            if (!simulacaoCompra.saldoSuficiente) {
+                throw new Error(`Saldo em ${simulacaoCompra.moeda} insuficiente para esta compra.`);
+            }
             const response = await apiFetch(`/carteiras/principal/acoes/${compra.acaoId}/compras`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     corretoraId: compra.corretoraId,
                     quantidade: compra.quantidade,
-                    valorUnitario: compra.valorUnitario || undefined
+                    valorUnitario: compra.valorUnitario || String(simulacaoCompra.valorUnitario)
                 })
             });
             if (!response.ok) {
@@ -165,10 +176,12 @@ const Carteiras = ({ modoPrivacidade = false, aoAlternarPrivacidade }) => {
 
             setCompra({ acaoId: '', corretoraId: '', quantidade: '1', valorUnitario: '' });
             setMensagem({ tipo: 'success', texto: 'Compra registrada na carteira.' });
-            carregarDados();
+            await carregarDados();
             notifyMarketTickerUpdate();
         } catch (error) {
             setMensagem({ tipo: 'error', texto: error.message });
+        } finally {
+            setComprando(false);
         }
     };
 
@@ -306,6 +319,10 @@ const Carteiras = ({ modoPrivacidade = false, aoAlternarPrivacidade }) => {
     const acaoEmCompra = catalogo.find((acao) => acao.id === compra.acaoId);
     const valorUnitarioCompra = compra.valorUnitario || acaoEmCompra?.cotacaoAtual || 0;
     const totalCompra = Number(compra.quantidade || 0) * Number(valorUnitarioCompra || 0);
+    const simulacaoCompra = simularCompra({
+        acao: acaoEmCompra, corretoraId: compra.corretoraId, quantidade: compra.quantidade,
+        valorUnitario: compra.valorUnitario, carteira, posicoes
+    });
     const totalVenda = Number(venda.quantidade || 0) * Number(venda.valorUnitario || 0);
     const exibirValor = (valor, moeda) => modoPrivacidade ? VALOR_OCULTO : formatCurrency(valor, moeda);
     const exibirQuantidade = (quantidade) => modoPrivacidade ? VALOR_OCULTO : quantidade;
@@ -407,16 +424,18 @@ const Carteiras = ({ modoPrivacidade = false, aoAlternarPrivacidade }) => {
                     </form>
                 </section>
 
-                <section className="form-panel">
+                <form onSubmit={comprarAcao} className="purchase-layout">
+                    <section className="form-panel purchase-fields-panel">
                     <h3>Comprar Ação</h3>
-                    <form onSubmit={comprarAcao} className="app-form">
-                        <div className="field-group">
-                            <label>Ativo</label>
+                    <div className="app-form purchase-fields">
+                        <div className="field-group purchase-field-wide">
+                            <label htmlFor="compra-ativo">Ativo</label>
                             <select
+                                id="compra-ativo"
                                 value={compra.acaoId}
                                 onChange={(event) => selecionarAcaoParaCompra(event.target.value)}
                                 className="form-input"
-                                disabled={isLoading}
+                                disabled={isLoading || comprando}
                             >
                                 <option value="">Selecione uma ação...</option>
                                 {catalogo.map((acao) => (
@@ -426,13 +445,14 @@ const Carteiras = ({ modoPrivacidade = false, aoAlternarPrivacidade }) => {
                                 ))}
                             </select>
                         </div>
-                        <div className="field-group">
-                            <label>Corretora</label>
+                        <div className="field-group purchase-field-wide">
+                            <label htmlFor="compra-corretora">Corretora</label>
                             <select
+                                id="compra-corretora"
                                 value={compra.corretoraId}
                                 onChange={(event) => setCompra({ ...compra, corretoraId: event.target.value })}
                                 className="form-input"
-                                disabled={isLoading}
+                                disabled={isLoading || comprando}
                             >
                                 <option value="">Selecione uma corretora...</option>
                                 {corretoras.map((corretora) => (
@@ -441,43 +461,50 @@ const Carteiras = ({ modoPrivacidade = false, aoAlternarPrivacidade }) => {
                             </select>
                         </div>
                         <div className="field-group">
-                            <label>Quantidade</label>
+                            <label htmlFor="compra-quantidade">Quantidade</label>
                             <input
+                                id="compra-quantidade"
                                 type="number"
                                 value={compra.quantidade}
                                 onChange={(event) => setCompra({ ...compra, quantidade: event.target.value })}
                                 min={isBrazilianMarket(acaoEmCompra?.mercado) ? '1' : '0.01'}
                                 step={isBrazilianMarket(acaoEmCompra?.mercado) ? '1' : '0.01'}
                                 className="form-input"
-                                disabled={isLoading}
+                                disabled={isLoading || comprando}
                             />
                         </div>
                         <div className="field-group">
-                            <label>Valor unitário (opcional)</label>
+                            <label htmlFor="compra-preco">Valor unitário (opcional)</label>
                             <input
+                                id="compra-preco"
                                 type="number"
                                 value={compra.valorUnitario}
                                 onChange={(event) => setCompra({ ...compra, valorUnitario: event.target.value })}
                                 min="0.01"
                                 step="0.01"
                                 className="form-input"
-                                disabled={isLoading}
+                                disabled={isLoading || comprando}
                             />
                         </div>
-                        <div className="field-group">
-                            <label>Valor total</label>
+                        <div className="field-group purchase-field-wide purchase-total-field">
+                            <label htmlFor="compra-total">Valor total</label>
                             <input
+                                id="compra-total"
                                 type="text"
                                 value={exibirValor(totalCompra, acaoEmCompra?.moeda)}
                                 className="form-input"
                                 readOnly
                             />
                         </div>
-                        <div className="form-actions">
-                            <button type="submit" className="btn btn-primary" disabled={isLoading || !carteira}>Comprar</button>
-                        </div>
-                    </form>
-                </section>
+                    </div>
+                    </section>
+                    <SimulacaoCompra simulacao={simulacaoCompra} modoPrivacidade={modoPrivacidade}>
+                        <button type="submit" className="btn btn-primary"
+                            disabled={isLoading || comprando || !simulacaoCompra || !simulacaoCompra.saldoSuficiente}>
+                            {comprando ? 'Confirmando compra...' : 'Confirmar compra'}
+                        </button>
+                    </SimulacaoCompra>
+                </form>
 
                 {mensagem.texto && !vendaAberta && !transferenciaAberta && <p role="alert" className={`alert ${mensagem.tipo === 'error' ? 'alert-error' : 'alert-success'}`}>{mensagem.texto}</p>}
 

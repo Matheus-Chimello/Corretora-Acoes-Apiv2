@@ -1503,6 +1503,95 @@ tbody tr:hover { background: var(--field-bg); }
     font-weight: 700;
 }
 
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.purchase-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.purchase-layout .form-panel { min-width: 0; margin: 0; }
+.purchase-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.purchase-field-wide { grid-column: 1 / -1; }
+.purchase-total-field { padding-top: 1rem; border-top: 1px solid var(--border-color); }
+.purchase-total-field input { padding: 0; border: 0; background: transparent; font-size: 1.7rem; font-weight: 800; }
+.purchase-simulation { display: flex; flex-direction: column; border-color: var(--accent-border); background: var(--accent-bg); }
+.purchase-simulation-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 0.7rem; }
+.purchase-simulation-heading h3 { margin: 0; }
+.purchase-simulation-heading .badge { border: 1px solid var(--accent-border); background: var(--surface-color); color: var(--accent-strong); }
+.purchase-hint { margin: 0.7rem 0; color: var(--text-secondary); font-size: 0.85rem; }
+.purchase-total { display: block; margin-bottom: 1rem; font-size: 2rem; font-variant-numeric: tabular-nums; }
+.purchase-empty { margin: 2rem 0; color: var(--text-secondary); line-height: 1.6; }
+.purchase-comparison { width: 100%; table-layout: auto; }
+.purchase-comparison th, .purchase-comparison td { padding: 0.9rem 0.3rem; background: transparent; font-size: 0.85rem; white-space: nowrap; }
+.purchase-comparison thead th { color: var(--text-secondary); }
+.purchase-comparison tbody th { color: var(--text-primary); font-weight: 600; }
+.purchase-comparison th:first-child { text-align: left; }
+.purchase-comparison td, .purchase-comparison th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.purchase-comparison td:last-child { color: var(--accent-strong); font-weight: 800; }
+.purchase-confirm { margin-top: auto; padding-top: 1.2rem; }
+.purchase-confirm .btn { width: 100%; }
+
+.monthly-intro { margin: 0 0 1.2rem; color: var(--text-secondary); }
+.monthly-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 1.3rem; }
+.monthly-period { display: flex; align-items: center; gap: 0.2rem; padding: 0.15rem; border: 1px solid var(--field-border); border-radius: 6px; background: var(--surface-color); }
+.monthly-period .btn { display: flex; align-items: center; justify-content: center; border: 0; background: transparent; }
+.monthly-period-input { display: flex; align-items: center; gap: 0.45rem; color: var(--text-secondary); }
+.monthly-period-input input { width: 13rem; padding-inline: 0.2rem; border: 0; background: transparent; font-weight: 700; }
+.monthly-currency { flex-wrap: nowrap; gap: 0; }
+.monthly-currency .btn { min-width: 4.4rem; border-radius: 0; }
+.monthly-currency .btn:first-child { border-radius: 6px 0 0 6px; }
+.monthly-currency .btn:last-child { border-radius: 0 6px 6px 0; border-left: 0; }
+.monthly-indicators { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.monthly-indicators .card { min-height: 138px; }
+.monthly-indicators .stat { display: block; font-size: clamp(1.15rem, 1.8vw, 1.7rem); }
+.monthly-card-label { display: flex; align-items: center; gap: 0.55rem; font-size: 0.86rem; font-weight: 750; }
+.monthly-card-label svg { flex: none; color: var(--text-secondary); }
+.monthly-closing h2, .monthly-page .table-heading h2 { margin: 0; font-size: 1.16rem; }
+.monthly-closing dl { margin: 0.8rem 0 0; }
+.monthly-closing dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 0.7rem 0; }
+.monthly-closing dt { color: var(--text-secondary); font-size: 0.87rem; }
+.monthly-closing dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+.monthly-closing .monthly-closing-total { margin-top: 0.5rem; padding-block: 1rem; border-block: 1px solid var(--border-color); }
+.monthly-closing-total dt, .monthly-closing-total dd { color: var(--accent-strong); font-size: 1rem; font-weight: 800; }
+.monthly-note { margin-bottom: 1rem; }
+.monthly-overview-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 1rem; margin-bottom: 0.8rem; }
+.monthly-overview-grid .form-panel { min-width: 0; margin-bottom: 0; }
+.monthly-evolution h2 { margin: 0; font-size: 1.16rem; }
+.monthly-evolution .chart-canvas { height: 245px; }
+.monthly-evolution .chart-empty { min-height: 245px; }
+.monthly-evolution .recharts-cartesian-axis-tick text { fill: var(--text-secondary); font-size: 0.74rem; }
+
+@media (max-width: 1180px) {
+    .monthly-indicators { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .monthly-indicators .stat { font-size: 1.6rem; }
+    .monthly-overview-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 620px) {
+    .monthly-indicators { grid-template-columns: minmax(0, 1fr); }
+    .monthly-controls { gap: 0.7rem; }
+    .monthly-period-input input { width: 10rem; }
+}
+
+@media (max-width: 1100px) {
+    .purchase-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 440px) {
+    .purchase-comparison th, .purchase-comparison td { font-size: 0.74rem; padding-inline: 0.15rem; }
+    .purchase-fields { grid-template-columns: minmax(0, 1fr); }
+}
+
 @media (max-width: 1180px) {
     .carteira-summary {
         grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -22,7 +22,7 @@ describe('menu lateral', () => {
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token: 'jwt-user', role: 'USER' }));
         render(<MemoryRouter><Navbar title="Carteira" /></MemoryRouter>);
         const menuUsuario = within(screen.getByRole('navigation', { name: 'Menu principal' }));
-        expect(menuUsuario.getAllByRole('link').map(link => link.textContent)).toEqual(['Visão geral', 'Carteira', 'Corretoras', 'Ações']);
+        expect(menuUsuario.getAllByRole('link').map(link => link.textContent)).toEqual(['Visão geral', 'Carteira', 'Resumo mensal', 'Corretoras', 'Ações']);
         expect(menuUsuario.getByRole('link', { name: 'Corretoras' })).toHaveAttribute('href', '/corretoras');
     });
 

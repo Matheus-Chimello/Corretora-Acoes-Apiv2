@@ -13,6 +13,7 @@ import Navbar from './components/Navbar';
 import Usuarios from './pages/Usuarios';
 import CadastroCorretora from './pages/CadastroCorretora';
 import MinhaConta from './pages/MinhaConta';
+import ResumoMensal from './pages/ResumoMensal';
 
 import './styles/index.css';
 
@@ -142,6 +143,11 @@ function App() {
                 />
 
                 <Route path="/dashboard" element={<Navigate to="/" replace />} />
+                <Route path="/resumo-mensal" element={(
+                    <ProtectedRoute>
+                        <ResumoMensal modoPrivacidade={modoPrivacidade} aoAlternarPrivacidade={alternarPrivacidade} />
+                    </ProtectedRoute>
+                )} />
                 <Route path="/minha-conta" element={(
                     <ProtectedRoute adminRedirect={null}>
                         <MinhaConta tema={tema} aoAlterarTema={alterarTema} />

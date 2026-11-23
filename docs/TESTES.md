@@ -1,5 +1,43 @@
 # Testes e cobertura
 
+## Simulação de compra e resumo mensal (23/11/2026)
+
+Os novos cenários usam os fluxos renderizados e as rotas autenticadas já existentes.
+Os serviços e componentes do projeto são reais; somente HTTP, relógio e a biblioteca
+externa de gráficos recebem dados fictícios. A API continua limitando os dados ao
+titular do JWT, conforme os testes de integração de permissões da carteira.
+
+`Carteiras.test.jsx` verifica a prévia antes da confirmação, o cálculo por ativo e
+corretora, BRL/USD, quantidades fracionárias dos EUA, saldo insuficiente, saldo exato
+com valores decimais, preço enviado igual ao da prévia, privacidade e bloqueio de
+confirmações repetidas. Preencher o formulário não registra uma compra.
+
+`ResumoMensal.test.jsx` verifica abertura e fechamento por mês/moeda, a virada do mês,
+separação entre aportes e resultado, vendas com ganho ou perda, transferência do custo
+médio entre corretoras, pontos e dicas do gráfico, privacidade, conta vazia, meses
+inválidos e recuperação após falha da API. Históricos incompletos deixam patrimônio
+e resultado indisponíveis, em vez de produzir valores inventados. As cotações atuais
+não são utilizadas para avaliar meses passados: o resumo usa caixa e custo médio.
+`App.test.jsx` verifica o acesso pelo menu e a privacidade ao navegar.
+
+| Verificação | Resultado | Linhas | Ramos |
+| --- | --- | --- | --- |
+| `mvnw.cmd verify`, perfil `test` | 142 testes aprovados | 95,27% | 85,50% |
+| `npm run test:coverage` | 129 testes aprovados | 96,89% | 90,36% |
+| `npm run build` | Aprovado | - | - |
+
+O verificador da política de cobertura passou na comparação com `HEAD`, seus nove
+testes de regressão passaram e as três skills fixadas tiveram a integridade confirmada.
+
+Nesta máquina, a execução do Vitest utilizou
+`--pool=threads --maxWorkers=2 --testTimeout=20000` para acomodar a inicialização dos
+workers. Os limites de cobertura e as configurações do projeto foram preservados.
+Os registros dos ciclos estão em `src/main/front/tdd-*.log`; os relatórios finais
+estão em `target/verify-simulacao-resumo.log` e
+`src/main/front/coverage-simulacao-resumo.log`, fora do Git.
+
+## Ferramentas e comandos
+
 O backend usa JUnit, Mockito e JaCoCo. O frontend usa Vitest e Testing Library.
 O perfil `test` utiliza um banco H2 em memoria e nao deve apontar para dados de desenvolvimento.
 

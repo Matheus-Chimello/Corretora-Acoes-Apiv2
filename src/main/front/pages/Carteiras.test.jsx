@@ -23,7 +23,7 @@ describe('operacoes da carteira', () => {
         vi.clearAllMocks();
         http.mockImplementation(async (url) => {
             const dados = {
-                '/carteiras/principal': { id: 'carteira' },
+                '/carteiras/principal': { id: 'carteira', saldoEmConta: 1500 },
                 '/carteiras/principal/posicoes': [posicao],
                 '/acoes': [ativo],
                 '/corretoras': corretoras,
@@ -41,9 +41,102 @@ describe('operacoes da carteira', () => {
         return tela;
     };
 
+    it('simula saldo, quantidade e preço médio antes de confirmar, sem registrar operações', async () => {
+        const padrao = http.getMockImplementation();
+        http.mockImplementation(async (rota, options) => {
+            if (rota === '/carteiras/principal') return resposta({ id: 'carteira', saldoEmConta: 1500 });
+            if (rota === '/carteiras/principal/posicoes') return resposta([
+                { ...posicao, id: 'a1', quantidadeTotal: 10, precoMedio: 28 }
+            ]);
+            return padrao(rota, options);
+        });
+        await abrir();
+        const form = screen.getByRole('button', { name: 'Confirmar compra' }).closest('form');
+        const [acao, corretora] = within(form).getAllByRole('combobox');
+        fireEvent.change(acao, { target: { value: 'a1' } });
+        fireEvent.change(corretora, { target: { value: 'c1' } });
+        fireEvent.change(within(form).getAllByRole('spinbutton')[0], { target: { value: '5' } });
+
+        const simulacao = within(screen.getByRole('region', { name: 'Simulação da compra' }));
+        const valores = (nome) => within(simulacao.getByRole('row', { name: nome })).getAllByRole('cell')
+            .map((cell) => cell.textContent.replace(/\u00a0/g, ' '));
+        expect(valores(/Saldo em reais/)).toEqual(['R$ 1.500,00', 'R$ 1.350,00']);
+        expect(valores(/Quantidade/)).toEqual(['10 ações', '15 ações']);
+        expect(valores(/Preço médio/)).toEqual(['R$ 28,00', 'R$ 28,67']);
+        fireEvent.change(within(form).getAllByRole('spinbutton')[0], { target: { value: '6' } });
+        expect(simulacao.getByRole('row', { name: /Saldo em reais/ })).toHaveTextContent('R$ 1.320,00');
+        expect(simulacao.getByRole('row', { name: /Preço médio/ })).toHaveTextContent('R$ 28,75');
+        expect(http.mock.calls.every(([, options]) => options.method === undefined || options.method === 'GET')).toBe(true);
+    });
+
+    it('simula frações em USD por corretora e bloqueia compra sem saldo nessa moeda', async () => {
+        const padrao = http.getMockImplementation();
+        const americana = { ...ativo, id: 'a-us', ticker: 'AAPL', mercado: 'US', moeda: 'USD', cotacaoAtual: 20 };
+        http.mockImplementation(async (rota, options) => {
+            if (rota === '/carteiras/principal') return resposta({ saldoEmConta: 1500, saldoEmDolar: 12 });
+            if (rota === '/acoes') return resposta([ativo, americana]);
+            if (rota === '/carteiras/principal/posicoes') return resposta([
+                posicao,
+                { ...posicao, posicaoId: 'p-us', id: 'a-us', quantidadeTotal: 0.5, precoMedio: 10 },
+                { ...posicao, posicaoId: 'p2', id: 'a-us', quantidadeTotal: 5, precoMedio: 15, corretoraRelacionada: corretoras[1] }
+            ]);
+            return padrao(rota, options);
+        });
+        const tela = render(<Carteiras />);
+        await waitFor(() => expect(screen.getByLabelText('Ativo')).not.toBeDisabled());
+        fireEvent.change(screen.getByLabelText('Ativo'), { target: { value: 'a-us' } });
+        fireEvent.change(screen.getByLabelText('Corretora'), { target: { value: 'c1' } });
+        fireEvent.change(screen.getByLabelText('Quantidade', { exact: true }), { target: { value: '0.5' } });
+        const simulacao = within(screen.getByRole('region', { name: 'Simulação da compra' }));
+        expect(simulacao.getByRole('row', { name: /Saldo em dólares/ })).toHaveTextContent('US$ 2,00');
+        expect(simulacao.getByRole('row', { name: /Preço médio/ })).toHaveTextContent('US$ 15,00');
+        fireEvent.change(screen.getByLabelText('Corretora'), { target: { value: 'c2' } });
+        expect(simulacao.getByRole('row', { name: /Preço médio/ })).toHaveTextContent('US$ 15,45');
+        fireEvent.change(screen.getByLabelText('Quantidade', { exact: true }), { target: { value: '1' } });
+        expect(simulacao.getByRole('alert')).toHaveTextContent('Saldo em USD insuficiente para esta compra.');
+        const confirmar = screen.getByRole('button', { name: 'Confirmar compra' });
+        expect(confirmar).toBeDisabled();
+        fireEvent.submit(confirmar.closest('form'));
+        expect(http.mock.calls.some(([, options]) => options.method === 'POST')).toBe(false);
+
+        fireEvent.change(screen.getByLabelText('Quantidade', { exact: true }), { target: { value: '0.5' } });
+        tela.rerender(<Carteiras modoPrivacidade />);
+        expect(simulacao.queryByText('US$ 15,45')).not.toBeInTheDocument();
+        expect(simulacao.queryByText('US$ 2,00')).not.toBeInTheDocument();
+        expect(simulacao.getByRole('row', { name: /Quantidade/ })).toHaveTextContent('••••');
+    });
+
+    it('confirma o preço exibido na prévia uma única vez e não bloqueia saldo exato por erro decimal', async () => {
+        const padrao = http.getMockImplementation();
+        let concluirCompra;
+        const pendente = new Promise((resolve) => { concluirCompra = resolve; });
+        http.mockImplementation(async (rota, options) => {
+            if (rota === '/carteiras/principal') return resposta({ saldoEmConta: 1500, saldoEmDolar: 0.3 });
+            if (rota === '/acoes') return resposta([{ ...ativo, id: 'a-us', mercado: 'US', moeda: 'USD', cotacaoAtual: 0.1 }]);
+            if (options.method === 'POST') return pendente;
+            return padrao(rota, options);
+        });
+        render(<Carteiras />);
+        await waitFor(() => expect(screen.getByLabelText('Ativo')).not.toBeDisabled());
+        fireEvent.change(screen.getByLabelText('Ativo'), { target: { value: 'a-us' } });
+        fireEvent.change(screen.getByLabelText('Corretora'), { target: { value: 'c1' } });
+        fireEvent.change(screen.getByLabelText('Quantidade', { exact: true }), { target: { value: '3' } });
+        fireEvent.change(screen.getByLabelText('Valor unitário (opcional)'), { target: { value: '' } });
+        const confirmar = screen.getByRole('button', { name: 'Confirmar compra' });
+        expect(confirmar).toBeEnabled();
+        fireEvent.click(confirmar);
+        expect(screen.getByRole('button', { name: 'Confirmando compra...' })).toBeDisabled();
+        fireEvent.submit(confirmar.closest('form'));
+        const envios = http.mock.calls.filter(([rota]) => rota.endsWith('/compras'));
+        expect(envios).toHaveLength(1);
+        expect(JSON.parse(envios[0][1].body)).toEqual({ corretoraId: 'c1', quantidade: '3', valorUnitario: '0.1' });
+        concluirCompra(resposta({}));
+        expect(await screen.findByText('Compra registrada na carteira.')).toBeInTheDocument();
+    });
+
     it('compra com outra corretora e valor unitario informado', async () => {
         await abrir();
-        const form = screen.getByRole('button', { name: 'Comprar' }).closest('form');
+        const form = screen.getByRole('button', { name: 'Confirmar compra' }).closest('form');
         const [acao, corretora] = within(form).getAllByRole('combobox');
         expect(within(corretora).queryByText('Invalida')).not.toBeInTheDocument();
         fireEvent.change(acao, { target: { value: 'a1' } });
@@ -62,7 +155,7 @@ describe('operacoes da carteira', () => {
 
     it('recusa quantidade fracionada na compra brasileira', async () => {
         await abrir();
-        const form = screen.getByRole('button', { name: 'Comprar' }).closest('form');
+        const form = screen.getByRole('button', { name: 'Confirmar compra' }).closest('form');
         const [acao, corretora] = within(form).getAllByRole('combobox');
         fireEvent.change(acao, { target: { value: 'a1' } });
         fireEvent.change(corretora, { target: { value: 'c2' } });
@@ -227,7 +320,7 @@ describe('operacoes da carteira', () => {
         http.mockImplementation(async (url, options) => options?.method === 'POST'
             ? resposta({ message: 'Saldo insuficiente' }, false) : padrao(url));
         await abrir();
-        const form = screen.getByRole('button', { name: 'Comprar' }).closest('form');
+        const form = screen.getByRole('button', { name: 'Confirmar compra' }).closest('form');
         const [acao, corretora] = within(form).getAllByRole('combobox');
         fireEvent.change(acao, { target: { value: 'a1' } });
         fireEvent.change(corretora, { target: { value: 'c2' } });
@@ -250,7 +343,7 @@ describe('operacoes da carteira', () => {
         http.mockResolvedValue(resposta({}, false));
         render(<Carteiras />);
         expect(await screen.findByText('Não foi possível carregar os dados da carteira.')).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Comprar' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Confirmar compra' })).toBeDisabled();
     });
 
     it('exibe e filtra o historico por tipo, ativo, corretora e data', async () => {

@@ -37,6 +37,22 @@ describe('protecao de rotas', () => {
         expect(await screen.findByRole('heading', { name: 'Minha Carteira' })).toBeInTheDocument();
     });
 
+    it('abre o resumo mensal pelo menu do usuário e mantém o modo privacidade', async () => {
+        window.location.hash = '#/carteiras';
+        const padrao = http.getMockImplementation();
+        http.mockImplementation(async (rota, options) => rota === '/carteiras/principal'
+            ? Response.json({ saldoEmConta: 812.34, saldoEmDolar: 65 }) : padrao(rota, options));
+        render(<App />);
+        fireEvent.click(await screen.findByRole('button', { name: 'Modo privacidade' }));
+        fireEvent.click(screen.getByRole('link', { name: 'Resumo mensal' }));
+        expect(await screen.findByRole('heading', { name: 'Resumo mensal' })).toBeInTheDocument();
+        const fechamento = within(await screen.findByRole('region', { name: 'Fechamento do mês' }));
+        expect(screen.getByRole('button', { name: 'Modo privacidade' })).toHaveAttribute('aria-pressed', 'true');
+        expect(fechamento.queryByText('R$ 812,34')).not.toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Modo privacidade' }));
+        expect(fechamento.getAllByText('R$ 812,34')).toHaveLength(3);
+    });
+
     it('oculta e restaura os valores e o gráfico da carteira na Visão geral', async () => {
         window.location.hash = '#/';
         const dados = {

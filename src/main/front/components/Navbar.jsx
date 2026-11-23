@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-    BriefcaseBusiness, ChartNoAxesColumnIncreasing, Landmark, LogOut,
+    BriefcaseBusiness, CalendarDays, ChartNoAxesColumnIncreasing, Landmark, LogOut,
     PanelLeftClose, PanelLeftOpen, ShieldCheck, TrendingUp, UserRound
 } from 'lucide-react';
 import { getCurrentUser, logout } from '../services/auth';
@@ -14,6 +14,7 @@ const linksAdmin = [
 const linksUsuario = [
     { to: '/', label: 'Visão geral', icon: ChartNoAxesColumnIncreasing },
     { to: '/carteiras', label: 'Carteira', icon: BriefcaseBusiness },
+    { to: '/resumo-mensal', label: 'Resumo mensal', icon: CalendarDays },
     { to: '/corretoras', label: 'Corretoras', icon: Landmark },
     { to: '/acoes', label: 'Ações', icon: TrendingUp }
 ];

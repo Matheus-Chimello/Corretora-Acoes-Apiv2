@@ -63,7 +63,7 @@ Para acompanhar a inicialização, use `docker compose logs -f backend`. Use `do
 1. Abra o site e entre com `APP_ADMIN_USERNAME` e `APP_ADMIN_PASSWORD`. No perfil `dev`, a aplicação cria o administrador inicial quando o e-mail configurado ainda não existe.
 2. Abra **Administração → Novo usuário**, preencha nome, e-mail e senha inicial e escolha **Usuário** para criar uma conta de investimento.
 3. Em **Corretoras**, cadastre pelo CNPJ uma instituição válida para as operações da carteira.
-4. Saia da conta administrativa e entre com o usuário criado para acessar **Visão geral**, **Carteira**, **Corretoras** e **Ações**.
+4. Saia da conta administrativa e entre com o usuário criado para acessar **Visão geral**, **Carteira**, **Resumo mensal**, **Corretoras** e **Ações**.
 
 O painel administrativo fica em `/#/admin/usuarios` e o cadastro de corretoras em `/#/admin/corretoras`. Para um administrador já cadastrado, a senha fica no banco e pode ser alterada em **Minha conta**.
 
@@ -71,7 +71,7 @@ O painel administrativo fica em `/#/admin/usuarios` e o cadastro de corretoras e
 
 | Ação na interface | Usuário comum (`USER`) | Administrador (`ADMIN`) |
 | --- | --- | --- |
-| Acessar a Visão geral, o catálogo de Ações e a Carteira | Na própria conta | A interface abre a Administração |
+| Acessar a Visão geral, o catálogo de Ações, a Carteira e o Resumo mensal | Na própria conta | A interface abre a Administração |
 | Consultar a lista de corretoras | Corretoras validadas | Todas, com status de validação |
 | Cadastrar e revalidar corretoras | Não | Sim |
 | Criar contas, alterar perfis, ativar ou inativar usuários e redefinir senhas | Não | Sim |
@@ -98,10 +98,22 @@ Ao entrar, o sistema tenta atualizar as cotações do catálogo. Se algum proved
 
 A Carteira exibe quantidade, preço médio, cotação, valor atual e resultado por posição. Use os filtros das tabelas para localizar ativos, corretoras e movimentações. A migração para duas moedas mantém o saldo anterior em BRL e inicia o saldo em USD com zero.
 
+### Simular uma compra
+
+Em **Carteira → Comprar Ação**, selecione o ativo e a corretora e informe quantidade e preço. A **Simulação da compra** mostra o valor da operação e compara o saldo, a quantidade e o preço médio antes e depois da compra. A posição considerada é a do ativo na corretora escolhida, e o saldo utilizado pertence à moeda do ativo.
+
+A prévia muda conforme os campos são preenchidos e não registra operações. Use **Confirmar compra** para enviar o preço exibido à API. O botão fica bloqueado durante o envio, com dados inválidos ou quando falta saldo na moeda da compra. A confirmação continua sujeita às validações do backend e ao saldo disponível naquele momento.
+
+### Consultar o resumo mensal
+
+Abra **Resumo mensal**, escolha o mês e alterne entre **BRL** e **USD**. A tela reúne aportes, compras, vendas, resultado do período, patrimônio de abertura e fechamento, saldo em caixa, gráfico e movimentações. Os meses anteriores são reconstruídos a partir do histórico completo da própria conta; operações posteriores ao mês selecionado não alteram seu fechamento. Transferências movem o custo médio entre corretoras sem entrar nos totais de compras, vendas ou aportes.
+
+O histórico mensal usa **caixa e custo médio das posições**, porque o projeto não armazena cotações históricas diárias. O resultado exclui aportes e valorização não realizada; as cotações atuais não são aplicadas ao passado. Quando faltam operações para reconstruir as posições, a tela informa que patrimônio e resultado estão indisponíveis e mantém os totais de movimentações e caixa. O mês atual mostra o acumulado até a consulta.
+
 ### Acompanhar a evolução e ocultar valores
 
 - **Evolução patrimonial.** Em **Visão geral**, escolha **30 dias**, **90 dias** ou **Histórico completo**. Os períodos filtrados começam pelo patrimônio de abertura. Os pontos históricos somam caixa e custo das posições. O ponto **Hoje** usa as cotações disponíveis.
-- **Modo privacidade.** Use o botão com ícone de olho na **Visão geral** ou na **Carteira** para ocultar saldos, quantidades, valores do histórico, rentabilidade e gráficos com dados da carteira durante apresentações. As cotações de mercado seguem visíveis. A preferência acompanha a navegação e a recarga na mesma aba.
+- **Modo privacidade.** Use o botão com ícone de olho na **Visão geral**, na **Carteira** ou no **Resumo mensal** para ocultar saldos, quantidades, valores do histórico, simulações, rentabilidade e gráficos com dados da carteira durante apresentações. As cotações de mercado seguem visíveis. A preferência acompanha a navegação e a recarga na mesma aba.
 - **Tema.** Em **Minha conta → Aparência**, escolha **Claro** ou **Escuro**. O navegador salva a escolha.
 
 ### Entender a validação de corretoras
