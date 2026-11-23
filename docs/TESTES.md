@@ -26,6 +26,11 @@ não são utilizadas para avaliar meses passados: o resumo usa caixa e custo mé
 | `npm run test:coverage` | 129 testes aprovados | 96,89% | 90,36% |
 | `npm run build` | Aprovado | - | - |
 
+A regressão da escala monetária foi reproduzida em Linux/Node 22: o ambiente
+formatava `R$ 5,0 mil`, enquanto o teste esperava `R$ 5 mil`. O gráfico define
+explicitamente zero casas decimais mínimas e uma máxima para manter o formato
+consistente. O mesmo teste e a suíte de 129 testes passaram no Node 22 após a correção.
+
 O verificador da política de cobertura passou na comparação com `HEAD`, seus nove
 testes de regressão passaram e as três skills fixadas tiveram a integridade confirmada.
 

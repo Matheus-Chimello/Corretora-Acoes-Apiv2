@@ -26,7 +26,7 @@ export default function EvolucaoMensal({ resumo, moeda, modoPrivacidade }) {
                         <CartesianGrid vertical={false} stroke="var(--chart-grid)" strokeDasharray="3 3" />
                         <XAxis dataKey="label" axisLine={false} tickLine={false} minTickGap={20} />
                         <YAxis width={78} axisLine={false} tickLine={false}
-                            tickFormatter={(valor) => valor.toLocaleString('pt-BR', { style: 'currency', currency: moeda, notation: 'compact', maximumFractionDigits: 1 })} />
+                            tickFormatter={(valor) => valor.toLocaleString('pt-BR', { style: 'currency', currency: moeda, notation: 'compact', minimumFractionDigits: 0, maximumFractionDigits: 1 })} />
                         <Tooltip content={<DicaDoGrafico moeda={moeda} />} />
                         <Area type="stepAfter" dataKey="patrimonio" name="Patrimônio a custo"
                             stroke="var(--accent-primary)" fill="var(--accent-primary)" fillOpacity={0.12} strokeWidth={2.5} />
